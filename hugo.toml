@@ -7,7 +7,7 @@ pygmentscodefences = true
 pygmentscodefencesguesssyntax = true
 
 [pagination]
-pageSise = 4
+pagerSise = 4
 
 [params]
 favicon = "https://img.icons8.com/officel/16/000000/chevron-right.png"
