@@ -1,0 +1,48 @@
+baseURL = "https://jradhima.github.io/"
+languageCode = "en-gb"
+title = "jradhima"
+theme = "archie"
+pygmentsstyle = "monokai"
+pygmentscodefences = true
+pygmentscodefencesguesssyntax = true
+
+[pagination]
+pageSise = 4
+
+[params]
+favicon = "https://img.icons8.com/officel/16/000000/chevron-right.png"
+mode = "dark"
+useCDN = true
+subtitle = "My blog about programming, ml, math and everything else"
+description = "Archie is a Minimal and Clean theme for Hugo"
+
+[[params.social]]
+name = "GitHub"
+icon = "github"
+url = "https://github.com/jradhima/"
+
+[[params.social]]
+name = "Linkedin"
+icon = "linkedin"
+url = "https://linkedin.com/in/yannisradhima/"
+
+
+[[menu.main]]
+name = "Home"
+url = "/"
+weight = 1
+
+[[menu.main]]
+name = "All posts"
+url = "/posts"
+weight = 2
+
+[[menu.main]]
+name = "About"
+url = "/about"
+weight = 3
+
+[[menu.main]]
+name = "Tags"
+url = "/tags"
+weight = 4
