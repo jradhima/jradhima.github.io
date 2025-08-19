@@ -1,8 +1,7 @@
 +++
 date = '2025-08-12T22:31:19+02:00'
-draft = true
 title = 'Labels, not boxes'
-tags = ['programming', 'python']
+tags = ['programming', 'python', 'basics']
 +++
 One of my favourite topics is how variables work in Python. Python's variables don't store data directly, instead they act as references to objects in memory. Python doesn’t have pointers, but in reality, I’d argue it just hides them in plain sight!
 
