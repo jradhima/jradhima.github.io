@@ -7,7 +7,7 @@ Python's variables don't store data directly, instead they act as references to 
 
 > Disclaimer: This post is inspired by material from the excellent book by Luciano Ramalho, Fluent Python
 
-### Variables as Labels 🏷️
+### Variables as Labels
 
 Think of a variable as a **label** that you can attach to an object. When you write `x = 10`, you're not putting the number `10` into a box called `x`. Instead, you're creating an object in memory with the value `10` and then attaching the label `x` to it.
 
@@ -48,7 +48,7 @@ Why is this interesting or useful? So far it's really not, it's just an implemen
 
 -----
 
-### Mutable vs. Immutable Objects 🗂️
+### Mutable vs. Immutable Objects
 
 The distinction between **mutable** and **immutable** objects is crucial here.
 
@@ -82,7 +82,7 @@ It is also something you need to be careful about because sharing data between f
 
 -----
 
-### Passing by (object) reference ⬅️
+### Passing by (object) reference
 
 Some languages have a split behaviour when passing arguments to functions: they do passing-by-value for certain types and passing-by-reference for other types. When passing-by-value, the function gets a copy of the data which it can modify or delete and it leaves the original value intact. When passing-by-reference, functions get a reference to the data which means they can access the original object. Modifying it changes the original object everywhere it’s referenced.
 
@@ -123,7 +123,7 @@ This function fails to modify the passed integer because an integer is immutable
 
 -----
 
-### Sometimes copying is good 🖨️
+### Sometimes copying is good
 
 This doesn’t mean you can never modify immutable values or share mutable ones. Well... actually... it means **exactly** that, but at the same time there is a very simple solution to the problem and we're already almost at the end! The first part of the solution is understanding how variables and mutability work. The second, is working around the situation.
 
@@ -164,13 +164,13 @@ print(f"obj: {obj}")  # should print "obj: 2"
 
 -----
 
-### The devil is in the details 😈
+### Nested structures
 
 The final boss of this topic is nested objects. In Python, anything is allowed and this means lists in lists in lists, lists of dictionaries, tuples with dictionaries and lists of strings, etc.
 
 The copying techniques we've discussed so far, like list.copy() or dict.copy(), create shallow copies. This works great for simple lists of numbers or strings, but it can lead to unexpected behavior with nested mutable objects.
 
-A shallow copy creates a new container object (e.g., a new list or dictionary) but populates it with references to the same nested objects from the original. This makes sense because these container objects are essentially a data structure of labels, not of actual data. Copying them only copies the top-level labels, not the objects they point to. If you modify a nested mutable object in the copied container, the original will also be affected because they both point to the same nested object.
+A shallow copy creates a new `container` object (e.g., a new list or dictionary) but populates it with references to the same nested objects from the original. This makes sense because these container objects are essentially a data structure of labels, not of actual data. Copying them only copies the top-level labels, not the objects they point to. If you modify a nested mutable object in the copied container, the original will also be affected because they both point to the same nested object.
 
 ```python {linenos=inline}
 # A nested list, containing a mutable list inside
