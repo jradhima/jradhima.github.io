@@ -1,0 +1,11 @@
+# Hugo
+/public/
+/resources/_gen/
+/data/_gen/
+/hugo_stats.json
+
+# OSX
+.DS_Store
+
+# Windows
+Thumbs.db

@@ -3,7 +3,7 @@ date = '2025-08-12T22:31:19+02:00'
 title = 'Labels, not boxes'
 tags = ['programming', 'python', 'basics']
 +++
-One of my favourite topics is how variables work in Python. Python's variables don't store data directly, instead they act as references to objects in memory. Python doesn’t have pointers, but in reality, I’d argue it just hides them in plain sight!
+Python's variables don't store data directly, instead they act as references to objects in memory. Python seems like it doesn’t have pointers but in reality it just hides them in plain sight.
 
 > Disclaimer: This post is inspired by material from the excellent book by Luciano Ramalho, Fluent Python
 
@@ -52,7 +52,7 @@ Why is this interesting or useful? So far it's really not, it's just an implemen
 
 The distinction between **mutable** and **immutable** objects is crucial here.
 
-  * **Immutable objects** (like strings, integers, and tuples) cannot be changed after they are created. When you "modify" them, you are actually creating a new object and **reassigning** the variable.
+  * **Immutable objects** (like strings, integers, and tuples) cannot be changed after they are created. When you "modify" them, you are actually creating a new object and **reassigning** the variable (keep this in mind, it's a very important concept).
   * **Mutable objects** (like lists, dictionaries, and sets) can be changed in place without creating a new object.
 
 Let's see this with a list:
@@ -202,5 +202,3 @@ print(f"Original list after deep copy modification: {original_list}") # This sho
 
 ### Final words
 Understanding these nuances of Python's variable model is a big step in becoming proficient with the language. Think about the basic rules, follow the code and you'll see that most of the bugs you encounter can be solved with this line of thinking.
-
-I hope you learned something while reading this!
