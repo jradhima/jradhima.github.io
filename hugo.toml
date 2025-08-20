@@ -1,6 +1,6 @@
 baseURL = "https://jradhima.github.io/"
 languageCode = "en-gb"
-title = "jradhima"
+title = "yannis learns"
 theme = "archie"
 pygmentsstyle = "monokai"
 pygmentscodefences = true
@@ -13,8 +13,7 @@ pagerSise = 4
 favicon = "https://raw.githubusercontent.com/jradhima/jradhima.github.io/refs/heads/main/static/favicon.ico"
 mode = "dark"
 useCDN = true
-subtitle = "My blog about programming, ml, math and everything else"
-description = "Archie is a Minimal and Clean theme for Hugo"
+subtitle = "My blog about work, programming and everything else"
 
 [[params.social]]
 name = "GitHub"
