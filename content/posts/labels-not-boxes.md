@@ -92,14 +92,14 @@ Let's see a couple of examples that will make the above concrete. Below is a fun
 
 ```python
 # this will modify the dictionary
-def modify(d: dict) -> None:
+def pop_last(d: dict) -> None:
     if d:
         d.popitem()
     return
 
 obj = {"name": "john", "surname": "doe"}
 
-modify(obj)
+pop_last(obj)
 
 print(f"obj: {obj}")  # should print obj: {"name": "john"}
 ```
@@ -109,13 +109,13 @@ This function modifies the dictionary because a dictionary is mutable. When pass
 Below is a similar function that receives an integer, increments it by one, then returns `None`.
 ```python
 # this will modify the dictionary
-def modify(d: int) -> None:
+def increment(d: int) -> None:
     d += 1
     return
 
 obj = 1
 
-modify(obj)
+increment(obj)
 
 print(f"obj: {obj}")  # should print "obj: 1"
 ```
@@ -131,18 +131,18 @@ The example below shows that Python provides easy ways to create copies of mutab
 
 ```python {linenos=inline hl_lines=[9]}
 # this will modify the dictionary
-def modify_not(d: dict) -> None:
+def pop_last(d: dict) -> None:
     if d:
         d.popitem()
     return
 
 obj = {"name": "john", "surname": "doe"}
 
-modify(obj.copy())  # pass a copy of the object!
+pop_last(obj.copy())  # pass a copy of the object!
 
 print(f"obj: {obj}")  # should print obj: {"name": "john", "surname": "doe"}
 
-modify(dict(obj))  # another way to make a copy is with the constructor functions!
+pop_last(dict(obj))  # another way to make a copy is with the constructor functions!
 
 print(f"obj: {obj}")  # should print obj: {"name": "john", "surname": "doe"}
 ```
@@ -151,13 +151,13 @@ To modify immutable values you simply have to store the reference to the newly c
 
 ```python {linenos=inline hl_lines=[2, 4, 8]}
 # this will modify the dictionary
-def modify(d: int) -> int:
+def increment(d: int) -> int:
     d = d + 1
     return d
 
 obj = 1
 
-obj = modify(obj)
+obj = increment(obj)
 
 print(f"obj: {obj}")  # should print "obj: 2"
 ```
@@ -187,7 +187,7 @@ To avoid this, you need a deep copy. A deep copy creates a completely new, indep
 
 You can easily create a deep copy using the copy module in the Python standard library. The copy.deepcopy() function handles the recursive copying for you, making your code safer and more predictable when dealing with complex nested data structures.
 
-```python {linenos=inline hl_lines=[6]}
+```python {linenos=inline hl_lines=[1, 6]}
 import copy
 
 original_list = [[1, 2], [3, 4]]
