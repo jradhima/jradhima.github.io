@@ -129,7 +129,7 @@ This doesn’t mean you can never modify immutable values or share mutable ones.
 
 The example below shows that Python provides easy ways to create copies of mutable objects. This way, you take on the performance overhead of duplicating the object data but you get safety back!
 
-```python {linenos=inline hl_lines=[9]}
+```python {linenos=inline hl_lines=[9, 13]}
 # this will modify the dictionary
 def pop_last(d: dict) -> None:
     if d:
