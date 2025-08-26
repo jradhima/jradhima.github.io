@@ -1,6 +1,6 @@
 baseURL = "https://jradhima.github.io/"
 languageCode = "en-gb"
-title = "yannis learns"
+title = "yannislearns"
 theme = "archie"
 pygmentsstyle = "monokai"
 pygmentscodefences = true
