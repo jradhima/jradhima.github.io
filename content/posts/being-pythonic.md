@@ -136,9 +136,11 @@ Remember how I said that `Counter` is custom-made for counting operations? It ca
 from collections import Counter
 
 counter = Counter(item_list)
-counter.most_common(3)
+result = counter.most_common(3)
 ```
-I don't know about you but when I first learned about this object I found it pretty amazing! However, there is a cost to this ease-of-use and expressiveness: you need to know about it and so do others. Implementation A is barebones, can be read, understood, and implemented by almost everyone who knows basic python. Implementation B requires knowledge of the `collections` module's existence and its contents. This is not to say you should not use these tools! Something having a cost does not mean it's not worth paying for. This is just my personal point about implementation A having its own merits - it's still a perfectly fine and readable solution to the problem.
+I don't know about you but when I first learned about this object I found it pretty amazing! However, there is a cost to this ease-of-use and expressiveness: you need to know about it and so do others. Implementation A is barebones, can be read, understood, and implemented by almost everyone who knows basic python. Implementation B requires knowledge of the `collections` module's existence and its contents. 
+
+This is not to say you should not use these tools! Something having a cost does not mean it's not worth paying for. This is just my personal point about implementation A having its own merits - it's still a perfectly fine and readable solution to the problem.
 
 ### Wrapping up
 
