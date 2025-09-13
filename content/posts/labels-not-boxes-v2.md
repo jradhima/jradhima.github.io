@@ -8,7 +8,7 @@ Simple stuff is simple but chain a lot of simple stuff together and you definite
 ### Containers
 
 With the term `containers` I refer to data structures that contain other objects: lists, tuples, dictionaries, etc. They can hold any objects, even themselves!
-```python
+```python {linenos=inline}
 l = [1, 2]
 print(id(l))  # list ID
 
@@ -27,7 +27,7 @@ Pointer logic works more or less the same in all languages so the above is not v
 ### Mutable containers
 
 Consider a function that sorts and modifies a list of dicts:
-```python
+```python {linenos=inline}
 def process_and_modify(dict_list: list[dict]) -> list[dict]:
     sorted_list = sorted(dict_list, key=lambda d: d["name"])
     for d in sorted_list:
@@ -86,7 +86,7 @@ for category, group_items in groupby(data, key=lambda d: d["category"]):
 
 So now let's imagine a scenario where we want to modify our user data but instead of outright doubling the scores, we double them for users with short hair and triple them for ones with long hair. It just makes sense!
 
-```python
+```python {linenos=inline}
 users = [
     {"name": "Charlie", "score": 10, "hair": "short"},
     {"name": "Alice", "score": 20, "hair": "long"}, 
