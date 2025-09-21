@@ -1,7 +1,7 @@
 +++
 date = '2025-09-13T20:00:19+02:00'
 title = 'Being pythonic'
-tags = ['programming', 'statistics', 'python', 'basics']
+tags = ['programming', 'python', 'basics']
 +++
 If you've been programming with python for more than a few months, or if you've ever read a tutorial or book or any other learning resource on the topic, chances are you've stumbled on the term `pythonic` or `idiomatic` code. In this post I will give my interpretation of the idea, why I do not think `pythonic` is yet another cringe keyword and how I try to remain `pythonic` when writing code.
 
