@@ -4,9 +4,9 @@ title = 'Decorators explained'
 tags = ['programming', 'python', 'metaprogramming', 'intermediate']
 +++
 
-Programming languages provide a way of writing code about code, what is known as metaprogramming. A well known, nice and elegant metaprogramming feature in Python is the decorator. Metaprogramming is usually a tool for library authors, not application developers.
+Programming languages provide a way of writing code about code, what is known as metaprogramming. A well known, nice and elegant metaprogramming feature in Python is the decorator.
 
-However, knowing how decorators work is worth it. It makes debugging easier, explains a lot of "magic" and shows just how powerful functions and the dynamic nature of Python are. You may never use them in your own code but decorators are a nice example of how Python works.
+Metaprogramming is usually a tool for library authors, not application developers. However, knowing how decorators work is worth it. It makes debugging easier, explains a lot of "magic" and shows just how powerful functions and the dynamic nature of Python are. You may never use them in your own code but decorators are a nice example of how Python works.
 
 -----
 
