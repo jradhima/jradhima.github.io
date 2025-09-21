@@ -288,7 +288,9 @@ def factorial(n: int) -> int:
 
 factorial(5)
 ```
+
 The end result is what we want, one set of logging statements. We had to keep a separate reference to the original function but this is a consequence of how variables and scope works in python.
+
 -----
 
 ### Wrapping up
