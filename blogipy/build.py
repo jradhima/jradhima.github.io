@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build logic for pydea."""
+"""Build logic for blogipy."""
 
 import os
 import re

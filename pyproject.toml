@@ -1,5 +1,5 @@
 [project]
-name = "pydea"
+name = "blogipy"
 version = "0.1.0"
 description = "Minimal markdown blog generator"
 requires-python = ">=3.11"
@@ -10,14 +10,14 @@ dependencies = [
 ]
 
 [project.scripts]
-pydea = "pydea.cli:main"
+blogipy = "blogipy.cli:main"
 
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["pydea*"]
+include = ["blogipy*"]
 
 [tool.uv]
 package = true

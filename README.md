@@ -1,4 +1,4 @@
-# pydeas
+# blogipy
 
 A minimal markdown blog generator. Write posts in Markdown, get a static site with syntax highlighting and copy buttons.
 

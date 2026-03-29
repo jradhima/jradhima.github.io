@@ -3,6 +3,26 @@ revision = 1
 requires-python = ">=3.11"
 
 [[package]]
+name = "blogipy"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "jinja2" },
+    { name = "mistune" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "mistune", specifier = ">=3.2.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+]
+
+[package.metadata.requires-dev]
+dev = []
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -96,26 +116,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/9d/55/d01f0c4b45ade6536
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/f7/4a5e785ec9fbd65146a27b6b70b6cdc161a66f2024e4b04ac06a67f5578b/mistune-3.2.0-py3-none-any.whl", hash = "sha256:febdc629a3c78616b94393c6580551e0e34cc289987ec6c35ed3f4be42d0eee1", size = 53598 },
 ]
-
-[[package]]
-name = "pydea"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "jinja2" },
-    { name = "mistune" },
-    { name = "pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "mistune", specifier = ">=3.2.0" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-]
-
-[package.metadata.requires-dev]
-dev = []
 
 [[package]]
 name = "pyyaml"
