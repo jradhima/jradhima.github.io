@@ -1,11 +1,13 @@
-+++
-date = '2025-08-26T22:00:19+02:00'
-title = 'Labels, not boxes: v2'
-tags = ['programming', 'python', 'basics']
-+++
+---
+title: "labels, not boxes - pt2"
+date: 2025-08-26
+---
+
+# labels, not boxes
+
 Simple stuff is simple but chain a lot of simple stuff together and you definitely reach a point where the complexity builds up. Continuing on the [previous post]({{< ref "posts/labels-not-boxes.md" >}}), here’s a more advanced look at Python containers.
 
-### Containers
+## containers
 
 With the term `containers` I refer to data structures that contain other objects: lists, tuples, dictionaries, etc. They can hold any objects, even themselves!
 ```python {linenos=inline}
@@ -22,9 +24,7 @@ print(l[-1][-1])  # [1, 2, [...]]
 ```
 Pointer logic works more or less the same in all languages so the above is not very surprising, but it showcases whats possible when working with references.
 
------
-
-### Mutable containers
+## mutable containers
 
 Consider a function that sorts and modifies a list of dicts:
 ```python {linenos=inline}
@@ -57,9 +57,8 @@ The result is not **that** surprising but in case you wonder, here's what's happ
 
 The lesson here is that by copying by object reference, Python minimizes the memory overhead while also maximizing the risk of unintentional modifications to the data.
 
------
 
-### A (slightly) more complex example
+## a (slightly) more complex example
 
 A large part of what **pythonic** means, to me at least, is knowing and using the tools the language provides to streamline and perform certain operations. I will talk about this in a future post but for now, let me introduce `itertools.groupby`. Here's a short example of how it works:
 
@@ -151,7 +150,7 @@ print(users)
 ```
 There is no need for new structures or containers! The list and the items are modified in place because `groupby` simply returns references to the underlying dicts.
 
-### Wrapping up
+## closing
 
 Working with containers in Python boils down to a simple idea: everything is a reference. Knowing this, a lot of Python’s behavior feels less "weird" and more "logical".
 

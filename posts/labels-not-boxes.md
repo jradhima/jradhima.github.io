@@ -1,13 +1,15 @@
-+++
-date = '2025-08-12T22:31:19+02:00'
-title = 'Labels, not boxes'
-tags = ['programming', 'python', 'basics']
-+++
+---
+title: "labels, not boxes - pt1"
+date: 2025-08-12
+---
+
+# labels, not boxes
+
 Python's variables don't store data directly, instead they act as references to objects in memory. Python seems like it doesn’t have pointers but in reality it just hides them in plain sight.
 
 > Disclaimer: This post is inspired by material from the excellent book by Luciano Ramalho, Fluent Python
 
-### Variables as Labels
+## variables as labels
 
 Think of a variable as a **label** that you can attach to an object. When you write `x = 10`, you're not putting the number `10` into a box called `x`. Instead, you're creating an object in memory with the value `10` and then attaching the label `x` to it.
 
@@ -28,9 +30,7 @@ print(f"Is a the same object as b? {a is b}")
 
 In the example above, `a` and `b` both reference the same object with the value `10`. The `id()` function returns the unique identifier of an object, specifically its memory address, proving the labels point to the same object.
 
------
-
-### Reassigning Variables
+## reassigning Variables
 
 When you reassign a variable, you're not changing the original object. You're simply detaching the label from the old object and attaching it to a new one.
 
@@ -46,9 +46,7 @@ print(f"ID after reassigning: {id(a)}")
 
 Why is this interesting or useful? So far it's really not, it's just an implementation detail. However, in combination with another aspect of Python it can have significant impact on the code you write, either in the form of bugs or performance. That aspect is object mutability.
 
------
-
-### Mutable vs. Immutable Objects
+## mutable vs immutable Objects
 
 The distinction between **mutable** and **immutable** objects is crucial here.
 
@@ -80,9 +78,7 @@ This behavior is why you have to be careful when working with mutable objects. A
 
 It is also something you need to be careful about because sharing data between functions can unintentionally modify them.
 
------
-
-### Passing by (object) reference
+## passing by (object) reference
 
 Some languages have a split behaviour when passing arguments to functions: they do passing-by-value for certain types and passing-by-reference for other types. When passing-by-value, the function gets a copy of the data which it can modify or delete and it leaves the original value intact. When passing-by-reference, functions get a reference to the data which means they can access the original object. Modifying it changes the original object everywhere it’s referenced.
 
@@ -121,9 +117,7 @@ print(f"obj: {obj}")  # should print "obj: 1"
 ```
 This function fails to modify the passed integer because an integer is immutable. The function again gets a label to the underlying object as a variable but when it tries to increment it, Python creates a new integer object with the value `d + 1` and assigns the label `d` to it. The original object still remains intact with the original `obj` variable still pointing to it.
 
------
-
-### Sometimes copying is good
+## sometimes copying is good
 
 This doesn’t mean you can never modify immutable values or share mutable ones. Well... actually... it means **exactly** that, but at the same time there is a very simple solution to the problem and we're already almost at the end! The first part of the solution is understanding how variables and mutability work. The second, is working around the situation.
 
@@ -162,9 +156,7 @@ obj = increment(obj)
 print(f"obj: {obj}")  # should print "obj: 2"
 ```
 
------
-
-### Nested structures
+## nested structures
 
 The final boss of this topic is nested objects. In Python, anything is allowed and this means lists in lists in lists, lists of dictionaries, tuples with dictionaries and lists of strings, etc.
 
@@ -200,5 +192,6 @@ deep_copy[0][0] = 88
 print(f"Original list after deep copy modification: {original_list}") # This should show [[1, 2], [3, 4]]!
 ```
 
-### Final words
+## closing
+
 Understanding these nuances of Python's variable model is a big step in becoming proficient with the language. Think about the basic rules, follow the code and you'll see that most of the bugs you encounter can be solved with this line of thinking.

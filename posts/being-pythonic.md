@@ -1,13 +1,14 @@
-+++
-date = '2025-09-13T20:00:19+02:00'
-title = 'Being pythonic'
-tags = ['programming', 'python', 'basics']
-+++
+---
+title: "pythonic code"
+date: 2025-09-13
+---
+
+# pythonic code
+
 If you've been programming with python for more than a few months, or if you've ever read a tutorial or book or any other learning resource on the topic, chances are you've stumbled on the term `pythonic` or `idiomatic` code. In this post I will give my interpretation of the idea, why I do not think `pythonic` is yet another cringe keyword and how I try to remain `pythonic` when writing code.
 
------
 
-### Python is a tool and all tools are different
+## python is a tool and all tools are different
 
 Ever seen an online discussion about how real programmers use Rust and oh-my-god-look-how-slow-Python-is? There are two takeaways from people who hold views like this:
 - the person is very passionate and misses the big picture
@@ -21,11 +22,10 @@ The developers of Python know this. In fact, it is impossible for them to not kn
 
 As an added bonus, the Python developers try to make the language feel as nice as possible so most of the time, the pythonic alternative will be shorter, look better and be more readable. It's not all that difficult to remain pythonic when writing code, so let's get to it.
 
------
 
-### Examples
+## examples
 
-#### List comprehensions
+### list comprehensions
 
 The example below is perfectly valid python code. It is also objectively bad python code. It will not matter if your code is a script that runs once in a while and handles a small amount of data but if it's serious code and the numbers list is large enough, you will notice the issues.
 
@@ -57,7 +57,7 @@ print(even_numbers)
 ```
 What previously took 4 lines of code can be achieved with 1. In addition, it almost reads like human language. What's also great is that this operation is implemented in C and highly optimized. It is still a for-loop under the hood, but a fast, C for-loop. The performance difference can be about 3x on a sample of 1 million numbers which isn't a mind-boggling number but it is still 3 times faster **and** looks, reads and feels nicer. For 95% of the code people write, readability is more important than performance (source is me). The good thing is in our case, readability comes with a performance boost so there is no excuse!
 
-#### Counter
+### counter
 
 This one is a great python party trick but also, another example of how Python tries to provide great tools for the most common use cases. You are tasked with counting the number of times each value in a list appears in that list. After a bit of thought, you may come up with the following implementation:
 ```python {linenos=inline}
@@ -142,7 +142,7 @@ I don't know about you but when I first learned about this object I found it pre
 
 This is not to say you should not use these tools! Something having a cost does not mean it's not worth paying for. This is just my personal point about implementation A having its own merits - it's still a perfectly fine and readable solution to the problem.
 
-### Wrapping up
+## closing
 
 Python is easy to use but complicated to use and execute well. There is less need to be familiar with advanced algorithms but more need to be familiar with the contents of the standard library, the built-in functionality and the ecosystem of packages and libraries around it. You do not need to go inventing the wheel every time you have a task because the chances are there is already a good tool for you to use. However, you need to know about it or at least know how to find it.
 

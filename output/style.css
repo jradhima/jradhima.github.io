@@ -1,0 +1,169 @@
+:root {
+  --font-family: system-ui, -apple-system, sans-serif;
+  --font-size: 16px;
+  --line-height: 1.7;
+  --max-width: 720px;
+  --bg: #ffffff;
+  --text: #333333;
+  --link: #0066cc;
+}
+
+pre code {
+  font-size: 0.85em;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+  color: var(--text);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  border-bottom: 1px solid #eee;
+  padding: 1rem 0;
+}
+
+nav {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-title {
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.nav-links a {
+  margin-left: 1.5rem;
+  text-decoration: none;
+  color: var(--link);
+}
+
+.nav-links a:hover {
+  text-decoration: underline;
+}
+
+main {
+  max-width: var(--max-width);
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+a {
+  color: var(--link);
+}
+
+h1, h2, h3 {
+  margin-top: 2em;
+  margin-bottom: 0.5em;
+}
+
+pre {
+  position: relative;
+  border-radius: 6px;
+  padding: 0;
+  overflow-x: auto;
+}
+
+pre code {
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:not(pre) > code {
+  background: #f0f0f0;
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: var(--font-family);
+}
+
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+blockquote {
+  border-left: 3px solid var(--link);
+  margin: 1.5em 0;
+  padding: 0.5em 1em;
+  color: #666;
+}
+
+.post-list {
+  list-style: none;
+  padding: 0;
+}
+
+.post-list li {
+  margin-bottom: 1.5rem;
+}
+
+.post-list a {
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.post-list a:hover {
+  text-decoration: underline;
+}
+
+.post-list .date {
+  color: #999;
+  font-size: 0.85rem;
+  margin-left: 0.5rem;
+}
+
+.post-meta {
+  color: #999;
+  font-size: 0.85rem;
+  margin-bottom: 2rem;
+}
+
+.month-heading {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #999;
+  text-transform: lowercase;
+  margin-top: 2.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.post-meta-inline {
+  color: #999;
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+}
+

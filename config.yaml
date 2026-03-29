@@ -1,0 +1,12 @@
+site:
+  title: "yannis radhima"
+  description: "a simple blog"
+
+style:
+  font_family: "system-ui, -apple-system, sans-serif"
+  font_size: "16px"
+  line_height: "1.7"
+  max_width: "720px"
+  background: "#ffffff"
+  text_color: "#333333"
+  link_color: "#0066cc"

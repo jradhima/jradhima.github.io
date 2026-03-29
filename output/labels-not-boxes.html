@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Labels, not boxes - pt1 — yannis radhima</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html" class="site-title">yannis radhima</a>
+      <div class="nav-links">
+        
+        <a href="about.html">About</a>
+        
+      </div>
+    </nav>
+  </header>
+  <main>
+    <div class="post-meta">2025-08-12 — 1562 words — 10 min read</div>
+<h1>Labels, not boxes</h1>
+<p>Python's variables don't store data directly, instead they act as references to objects in memory. Python seems like it doesn’t have pointers but in reality it just hides them in plain sight.</p>
+<blockquote>
+<p>Disclaimer: This post is inspired by material from the excellent book by Luciano Ramalho, Fluent Python</p>
+</blockquote>
+<h2>Variables as Labels</h2>
+<p>Think of a variable as a <strong>label</strong> that you can attach to an object. When you write <code>x = 10</code>, you're not putting the number <code>10</code> into a box called <code>x</code>. Instead, you're creating an object in memory with the value <code>10</code> and then attaching the label <code>x</code> to it.</p>
+<p>There’s nothing stopping you from attaching multiple labels to the same object. Doing so does not multiply the number of objects. It's still the same object, it just has multiple labels attached to it.</p>
+<pre><code class="language-python"># The variable 'a' is a reference to integer value 10
+a = 10
+print(f&quot;The ID of the object that variable 'a' references is: {id(a)}&quot;)
+
+# The variable 'b' is also a reference to the same integer object 10
+b = a
+print(f&quot;The ID of the object that variable 'b' references is: {id(b)}&quot;)
+
+# 'a' and 'b' point to the same object in memory
+print(f&quot;Is a the same object as b? {a is b}&quot;)
+</code></pre>
+<p>In the example above, <code>a</code> and <code>b</code> both reference the same object with the value <code>10</code>. The <code>id()</code> function returns the unique identifier of an object, specifically its memory address, proving the labels point to the same object.</p>
+<h2>Reassigning Variables</h2>
+<p>When you reassign a variable, you're not changing the original object. You're simply detaching the label from the old object and attaching it to a new one.</p>
+<pre><code class="language-python">a = 10
+print(f&quot;ID before reassigning: {id(a)}&quot;)
+
+a = &quot;another object&quot;
+print(f&quot;ID after reassigning: {id(a)}&quot;)
+
+# The ID has changed, because 'a' now points to a string object in a different memory address.
+</code></pre>
+<p>Why is this interesting or useful? So far it's really not, it's just an implementation detail. However, in combination with another aspect of Python it can have significant impact on the code you write, either in the form of bugs or performance. That aspect is object mutability.</p>
+<h2>Mutable vs. Immutable Objects</h2>
+<p>The distinction between <strong>mutable</strong> and <strong>immutable</strong> objects is crucial here.</p>
+<ul>
+<li><strong>Immutable objects</strong> (like strings, integers, and tuples) cannot be changed after they are created. When you &quot;modify&quot; them, you are actually creating a new object and <strong>reassigning</strong> the variable (keep this in mind, it's a very important concept).</li>
+<li><strong>Mutable objects</strong> (like lists, dictionaries, and sets) can be changed in place without creating a new object.</li>
+</ul>
+<p>Let's see this with a list:</p>
+<pre><code class="language-python">list1 = [1, 2, 3]
+list2 = list1  # list2 now references the *same* list object as list1
+
+print(f&quot;ID of list1: {id(list1)}&quot;)
+print(f&quot;ID of list2: {id(list2)}&quot;)
+
+# Now, we modify the list through list1
+list1.append(4)
+
+print(f&quot;list1: {list1}&quot;)
+print(f&quot;list2: {list2}&quot;) # list2 shows the change because they reference the same object
+
+print(f&quot;ID of list1 after modification: {id(list1)}&quot;)
+print(f&quot;ID of list2 after modification: {id(list2)}&quot;)
+
+# The IDs are the same because the object was modified in place.
+</code></pre>
+<p>This behavior is why you have to be careful when working with mutable objects. Assigning a new variable doesn’t create a copy—it just adds another label to the same object. This is a good thing because it allows one to be efficient with memory. Imagine working with a very large list: referencing allows you to simply pass around the reference to the object instead of copying it all the time!</p>
+<p>It is also something you need to be careful about because sharing data between functions can unintentionally modify them.</p>
+<h2>Passing by (object) reference</h2>
+<p>Some languages have a split behaviour when passing arguments to functions: they do passing-by-value for certain types and passing-by-reference for other types. When passing-by-value, the function gets a copy of the data which it can modify or delete and it leaves the original value intact. When passing-by-reference, functions get a reference to the data which means they can access the original object. Modifying it changes the original object everywhere it’s referenced.</p>
+<p>In Python, sometimes you can modify the value and other times you cannot. So does it follow the same split behaviour? Nope! Python mimics this split behavior with the combination of mutable/immutable types and always passing-by-reference.</p>
+<p>Let's see a couple of examples that will make the above concrete. Below is a function that receives a dictionary, pops the last key-value pair inserted, then returns <code>None</code>.</p>
+<pre><code class="language-python"># this will modify the dictionary
+def pop_last(d: dict) -&gt; None:
+    if d:
+        d.popitem()
+    return
+
+obj = {&quot;name&quot;: &quot;john&quot;, &quot;surname&quot;: &quot;doe&quot;}
+
+pop_last(obj)
+
+print(f&quot;obj: {obj}&quot;)  # should print obj: {&quot;name&quot;: &quot;john&quot;}
+</code></pre>
+<p>This function modifies the dictionary because a dictionary is mutable. When passed as an argument, the function gets a label to the underlying object as a variable so any action is happening against the underlying object. This makes the modification persistent.</p>
+<p>Below is a similar function that receives an integer, increments it by one, then returns <code>None</code>.</p>
+<pre><code class="language-python"># this will modify the dictionary
+def increment(d: int) -&gt; None:
+    d += 1
+    return
+
+obj = 1
+
+increment(obj)
+
+print(f&quot;obj: {obj}&quot;)  # should print &quot;obj: 1&quot;
+</code></pre>
+<p>This function fails to modify the passed integer because an integer is immutable. The function again gets a label to the underlying object as a variable but when it tries to increment it, Python creates a new integer object with the value <code>d + 1</code> and assigns the label <code>d</code> to it. The original object still remains intact with the original <code>obj</code> variable still pointing to it.</p>
+<h2>Sometimes copying is good</h2>
+<p>This doesn’t mean you can never modify immutable values or share mutable ones. Well... actually... it means <strong>exactly</strong> that, but at the same time there is a very simple solution to the problem and we're already almost at the end! The first part of the solution is understanding how variables and mutability work. The second, is working around the situation.</p>
+<p>The example below shows that Python provides easy ways to create copies of mutable objects. This way, you take on the performance overhead of duplicating the object data but you get safety back!</p>
+<pre><code class="language-python"># this will modify the dictionary
+def pop_last(d: dict) -&gt; None:
+    if d:
+        d.popitem()
+    return
+
+obj = {&quot;name&quot;: &quot;john&quot;, &quot;surname&quot;: &quot;doe&quot;}
+
+pop_last(obj.copy())  # pass a copy of the object!
+
+print(f&quot;obj: {obj}&quot;)  # should print obj: {&quot;name&quot;: &quot;john&quot;, &quot;surname&quot;: &quot;doe&quot;}
+
+pop_last(dict(obj))  # another way to make a copy is with the constructor functions!
+
+print(f&quot;obj: {obj}&quot;)  # should print obj: {&quot;name&quot;: &quot;john&quot;, &quot;surname&quot;: &quot;doe&quot;}
+</code></pre>
+<p>To modify immutable values you simply have to store the reference to the newly created object. This way the label <code>obj</code> is now pointing to the new, incremented integer object and forgets about the original one. It is <em>as if</em> you modified an immutable object.</p>
+<pre><code class="language-python"># this will modify the dictionary
+def increment(d: int) -&gt; int:
+    d = d + 1
+    return d
+
+obj = 1
+
+obj = increment(obj)
+
+print(f&quot;obj: {obj}&quot;)  # should print &quot;obj: 2&quot;
+</code></pre>
+<h2>Nested structures</h2>
+<p>The final boss of this topic is nested objects. In Python, anything is allowed and this means lists in lists in lists, lists of dictionaries, tuples with dictionaries and lists of strings, etc.</p>
+<p>The copying techniques we've discussed so far, like list.copy() or dict.copy(), create shallow copies. This works great for simple lists of numbers or strings, but it can lead to unexpected behavior with nested mutable objects.</p>
+<p>A shallow copy creates a new <code>container</code> object (e.g., a new list or dictionary) but populates it with references to the same nested objects from the original. This makes sense because these container objects are essentially a data structure of labels, not of actual data. Copying them only copies the top-level labels, not the objects they point to. If you modify a nested mutable object in the copied container, the original will also be affected because they both point to the same nested object.</p>
+<pre><code class="language-python"># A nested list, containing a mutable list inside
+original_list = [[1, 2], [3, 4]]
+
+shallow_copy = original_list.copy()
+
+shallow_copy[0][0] = 99
+
+print(f&quot;Original list after shallow copy modification: {original_list}&quot;) # This should show [[99, 2], [3, 4]]!
+</code></pre>
+<p>To avoid this, you need a deep copy. A deep copy creates a completely new, independent object by recursively copying all the nested objects as well. No matter how many levels deep your data is, a deep copy ensures that every part of the new object is a unique instance. This is a surprisingly difficult task, because a list can contain itself!</p>
+<p>You can easily create a deep copy using the copy module in the Python standard library. The copy.deepcopy() function handles the recursive copying for you, making your code safer and more predictable when dealing with complex nested data structures.</p>
+<pre><code class="language-python">import copy
+
+original_list = [[1, 2], [3, 4]]
+
+# Create a deep copy
+deep_copy = copy.deepcopy(original_list)
+
+deep_copy[0][0] = 88
+
+print(f&quot;Original list after deep copy modification: {original_list}&quot;) # This should show [[1, 2], [3, 4]]!
+</code></pre>
+<h2>Closing</h2>
+<p>Understanding these nuances of Python's variable model is a big step in becoming proficient with the language. Think about the basic rules, follow the code and you'll see that most of the bugs you encounter can be solved with this line of thinking.</p>
+
+  </main>
+  <script>
+    hljs.highlightAll();
+
+    document.querySelectorAll('pre').forEach(pre => {
+      const code = pre.querySelector('code');
+      if (!code) return;
+
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText(code.textContent).then(() => {
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+      });
+
+      pre.style.position = 'relative';
+      pre.appendChild(btn);
+    });
+  </script>
+</body>
+</html>

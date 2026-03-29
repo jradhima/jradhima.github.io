@@ -1,16 +1,15 @@
-+++
-date = '2025-09-21T16:05:20+02:00'
-title = 'Decorators explained'
-tags = ['programming', 'python', 'metaprogramming', 'intermediate']
-+++
+---
+title: "decorators explained"
+date: 2025-09-21
+---
+
+# decorators explained
 
 Programming languages provide a way of writing code about code, what is known as metaprogramming. A well known, nice and elegant metaprogramming feature in Python is the decorator.
 
 Metaprogramming is usually a tool for library authors, not application developers. However, knowing how decorators work is worth it. It makes debugging easier, explains a lot of "magic" and shows just how powerful functions and the dynamic nature of Python are. You may never use them in your own code but decorators are a nice example of how Python works.
 
------
-
-### How decorators work
+## how decorators work
 
 Let's assume you are writing a performance sensitive function in your application. Let's also hope that it doesn't do what the example below shows.
 ```python {linenos=inline}
@@ -98,9 +97,7 @@ counter(1000000)
 ```
 It is important to note that the last line is equivalent to `logger(timer(counter))(1000000)` and **not** `logger(timer(counter(1000000)))`. The decorator first wraps the function and returns it, so you are calling the end result of this chain which is `logger(timer(counter))`, where counter is just the function object and not called yet. Think `counter` vs `counter()`.
 
------
-
-### A minor issue and a nice solution
+## a minor issue and a nice solution
 
 As you already know, objects in python have a ton of interesting and helpful attributes and metadata. Functions are another type of object, therefore they have their own set of attributes. Take this example:
 ```python {linenos=inline}
@@ -156,9 +153,7 @@ print(add_one.__annotations__)  # {'n': <class 'int'>, 'return': <class 'int'>}
 ```
 It is interesting how we solve the issue by decorating our decorator, but if you consider what metaprogramming is (programming with code instead of values) it makes total sense! Python handles the reference logistics behind the scenes for us and our code remains as close to the original as possible.
 
------
-
-### An interesting edge case
+## an interesting edge case
 
 Just as an excuse to introduce some extra depth into the discussion, let's work with a recursive function.
 ```python {linenos=inline}
@@ -291,9 +286,7 @@ factorial(5)
 
 The end result is what we want, one set of logging statements. We had to keep a separate reference to the original function but this is a consequence of how variables and scope works in python.
 
------
-
-### Wrapping up
+## closing
 As already mentioned, metaprogramming is a niche topic and you can have a lengthy career without having to actively use it much. Make no mistake, you are probably using it every day as an end user but I have rarely, if ever, had to make my own decorator so far.
 
 However, the focus of this post (and this blog) is not about teaching and learning how to do things, but rather about how things are done. It pays dividends to know the underlying mechanisms, what is possible and the extent of the tools and possibilities provided by a language.
