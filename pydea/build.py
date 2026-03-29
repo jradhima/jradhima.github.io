@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal markdown blog generator."""
+"""Build logic for pydea."""
 
 import os
 import re
@@ -11,17 +11,12 @@ import yaml
 from jinja2 import Environment, FileSystemLoader
 
 
-# --- Config ---
-
 def load_config(path="config.yaml"):
     with open(path) as f:
         return yaml.safe_load(f)
 
 
-# --- Markdown parsing ---
-
 def parse_front_matter(text):
-    """Extract YAML front matter and body from markdown text."""
     match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", text, re.DOTALL)
     if match:
         meta = yaml.safe_load(match.group(1))
@@ -32,15 +27,7 @@ def parse_front_matter(text):
     return meta, body
 
 
-def make_markdown_renderer():
-    """Create a mistune markdown renderer."""
-    return mistune.html
-
-
-# --- File scanning ---
-
 def scan_content(directory):
-    """Scan a directory for .md files and return parsed content."""
     items = []
     if not os.path.isdir(directory):
         return items
@@ -62,18 +49,15 @@ def scan_content(directory):
     return items
 
 
-# --- Build ---
-
 def build():
     config = load_config()
-    md = make_markdown_renderer()
+    md = mistune.html
 
-    # Clean and create output directory
     if os.path.exists("output"):
         shutil.rmtree("output")
     os.makedirs("output")
 
-    # Read base CSS from template file and substitute config values
+    # CSS
     template_css_path = os.path.join("templates", "style.css")
     with open(template_css_path) as f:
         base_css = f.read()
@@ -87,15 +71,13 @@ def build():
     css = css.replace("FILL_IN_text_color", style["text_color"])
     css = css.replace("FILL_IN_link_color", style["link_color"])
 
-    # Write CSS
     with open(os.path.join("output", "style.css"), "w") as f:
         f.write(css)
 
-    # Scan content
+    # Content
     posts = scan_content("posts")
     pages = scan_content("pages")
 
-    # Convert markdown to HTML and compute reading stats
     for post in posts:
         post["html"] = md(post["body"])
         word_count = len(post["body"].split())
@@ -104,14 +86,10 @@ def build():
     for page in pages:
         page["html"] = md(page["body"])
 
-    # Sort posts by date (newest first)
     posts.sort(key=lambda p: str(p.get("date", "")), reverse=True)
 
-    # Set up Jinja2
     env = Environment(loader=FileSystemLoader("templates"))
     layout = env.get_template("layout.html")
-
-    # Prepare page list for nav
     page_list = [{"slug": p["slug"], "title": p["title"]} for p in pages]
 
     # Render posts
@@ -136,7 +114,7 @@ def build():
         with open(os.path.join("output", f"{page['slug']}.html"), "w") as f:
             f.write(output)
 
-    # Render index grouped by month/year
+    # Render index
     post_list_html = ''
     current_key = None
     for post in posts:
@@ -166,7 +144,3 @@ def build():
         f.write(output)
 
     print(f"Built {len(posts)} post(s) and {len(pages)} page(s) → output/")
-
-
-if __name__ == "__main__":
-    build()
