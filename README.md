@@ -2,18 +2,30 @@
 
 A minimal markdown blog generator. Write posts in Markdown, get a static site with syntax highlighting and copy buttons.
 
-## Setup
+## Installation
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+pip install .
 ```
 
-## Usage
+Or using uv:
 
 ```bash
-python build.py
+uv pip install .
+```
+
+## Creating a new post
+
+```bash
+blogipy new "My Post Title"
+```
+
+This creates a new markdown file in `posts/` with front matter and a basic template.
+
+## Building the site
+
+```bash
+blogipy build
 ```
 
 Open `output/index.html` in your browser.
@@ -21,27 +33,15 @@ Open `output/index.html` in your browser.
 ## Project Structure
 
 ```
-├── config.yaml       # Site title, fonts, colors, code theme
-├── build.py          # Build script
-├── templates/        # HTML template
-├── posts/            # Blog posts (.md files with front matter)
-├── pages/            # Static pages (About, etc.)
-└── output/           # Generated site
-```
-
-## Adding Posts
-
-Create a `.md` file in `posts/`:
-
-```markdown
----
-title: "My Post"
-date: 2026-03-27
----
-
-# My Post
-
-Content goes here.
+├── blogipy/           # Python package
+│   ├── cli.py         # Command line interface
+│   ├── new.py         # Post generator
+│   └── build.py       # Site builder
+├── config.yaml        # Site title, fonts, colors
+├── templates/         # HTML template
+├── posts/             # Blog posts (.md files with front matter)
+├── pages/             # Static pages (About, etc.)
+└── output/            # Generated site
 ```
 
 ## Adding Pages
@@ -72,8 +72,9 @@ style:
   font_size: "18px"
   line_height: "1.7"
   max_width: "720px"
-  code_theme: "monokai"   # any Pygments theme
   background: "#ffffff"
   text_color: "#333333"
   link_color: "#0066cc"
 ```
+
+Code highlighting is handled by highlight.js with the "atom-one-light" theme.
