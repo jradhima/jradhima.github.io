@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pythonic code — yannis radhima</title>
+  <title>pythonic code — yannis radhima</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body>
@@ -21,9 +21,9 @@
   </header>
   <main>
     <div class="post-meta">2025-09-13 — 1784 words — 12 min read</div>
-<h1>Pythonic code</h1>
+<h1>pythonic code</h1>
 <p>If you've been programming with python for more than a few months, or if you've ever read a tutorial or book or any other learning resource on the topic, chances are you've stumbled on the term <code>pythonic</code> or <code>idiomatic</code> code. In this post I will give my interpretation of the idea, why I do not think <code>pythonic</code> is yet another cringe keyword and how I try to remain <code>pythonic</code> when writing code.</p>
-<h2>Python is a tool and all tools are different</h2>
+<h2>python is a tool and all tools are different</h2>
 <p>Ever seen an online discussion about how real programmers use Rust and oh-my-god-look-how-slow-Python-is? There are two takeaways from people who hold views like this:</p>
 <ul>
 <li>the person is very passionate and misses the big picture</li>
@@ -33,8 +33,8 @@
 <p>In the process of mastering a tool or a craft, you need to understand the differences between various tools and tasks. Python <strong>is</strong> on the slower end so it’s not the best fit for performance-critical software. Don't write a numerical analysis library with python. Feel free, however, to write wrapper code in Python. Write a machine learning library that makes it a breeze to interoperate and call the underlying C or Fortran implementations of numerical analysis libraries! This is how Numpy does it, how Pytorch does it.</p>
 <p>The developers of Python know this. In fact, it is impossible for them to not know this since they actually write C code a lot of the time, not Python. The main Python implementation Python is called <code>CPython</code> and the C stands for C! To make your life easier, Python provides tools, trying to mask its weak points. This is what being pythonic is all about: understanding how you should use the language, play to its strengths and avoid its weak spots. In some ways, languages like C are easier than Python. Easy is probably the wrong word, simpler is more correct. The ease-of-use Python provides comes at a complexity cost, things hidden from you under many layers of abstraction. Python allows you to shoot yourself in the foot <strong>very</strong> easily, but thankfully being pythonic fixes this!</p>
 <p>As an added bonus, the Python developers try to make the language feel as nice as possible so most of the time, the pythonic alternative will be shorter, look better and be more readable. It's not all that difficult to remain pythonic when writing code, so let's get to it.</p>
-<h2>Examples</h2>
-<h3>List comprehensions</h3>
+<h2>examples</h2>
+<h3>list comprehensions</h3>
 <p>The example below is perfectly valid python code. It is also objectively bad python code. It will not matter if your code is a script that runs once in a while and handles a small amount of data but if it's serious code and the numbers list is large enough, you will notice the issues.</p>
 <pre><code class="language-python"># let's find the even numbers in this list
 numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -62,7 +62,7 @@ even_numbers = [num for num in numbers if num % 2 == 0]
 print(even_numbers)
 </code></pre>
 <p>What previously took 4 lines of code can be achieved with 1. In addition, it almost reads like human language. What's also great is that this operation is implemented in C and highly optimized. It is still a for-loop under the hood, but a fast, C for-loop. The performance difference can be about 3x on a sample of 1 million numbers which isn't a mind-boggling number but it is still 3 times faster <strong>and</strong> looks, reads and feels nicer. For 95% of the code people write, readability is more important than performance (source is me). The good thing is in our case, readability comes with a performance boost so there is no excuse!</p>
-<h3>Counter</h3>
+<h3>counter</h3>
 <p>This one is a great python party trick but also, another example of how Python tries to provide great tools for the most common use cases. You are tasked with counting the number of times each value in a list appears in that list. After a bit of thought, you may come up with the following implementation:</p>
 <pre><code class="language-python">counter = {}
 
@@ -139,7 +139,7 @@ result = counter.most_common(3)
 </code></pre>
 <p>I don't know about you but when I first learned about this object I found it pretty amazing! However, there is a cost to this ease-of-use and expressiveness: you need to know about it and so do others. Implementation A is barebones, can be read, understood, and implemented by almost everyone who knows basic python. Implementation B requires knowledge of the <code>collections</code> module's existence and its contents.</p>
 <p>This is not to say you should not use these tools! Something having a cost does not mean it's not worth paying for. This is just my personal point about implementation A having its own merits - it's still a perfectly fine and readable solution to the problem.</p>
-<h2>Closing</h2>
+<h2>closing</h2>
 <p>Python is easy to use but complicated to use and execute well. There is less need to be familiar with advanced algorithms but more need to be familiar with the contents of the standard library, the built-in functionality and the ecosystem of packages and libraries around it. You do not need to go inventing the wheel every time you have a task because the chances are there is already a good tool for you to use. However, you need to know about it or at least know how to find it.</p>
 <p>Being pythonic is using the language the way it is intended to be used, what is also known as writing idiomatic code. By doing so, your code is cleaner and more readable, while also being more performant. It's just win-win!</p>
 

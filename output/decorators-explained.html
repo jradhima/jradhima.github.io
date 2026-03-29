@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Decorators explained — yannis radhima</title>
+  <title>decorators explained — yannis radhima</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body>
@@ -21,10 +21,10 @@
   </header>
   <main>
     <div class="post-meta">2025-09-21 — 1763 words — 12 min read</div>
-<h1>Decorators explained</h1>
+<h1>decorators explained</h1>
 <p>Programming languages provide a way of writing code about code, what is known as metaprogramming. A well known, nice and elegant metaprogramming feature in Python is the decorator.</p>
 <p>Metaprogramming is usually a tool for library authors, not application developers. However, knowing how decorators work is worth it. It makes debugging easier, explains a lot of &quot;magic&quot; and shows just how powerful functions and the dynamic nature of Python are. You may never use them in your own code but decorators are a nice example of how Python works.</p>
-<h2>How decorators work</h2>
+<h2>how decorators work</h2>
 <p>Let's assume you are writing a performance sensitive function in your application. Let's also hope that it doesn't do what the example below shows.</p>
 <pre><code class="language-python">def counter(n: int) -&gt; int:
     &quot;&quot;&quot;counts the elements of a list it creates! not great!&quot;&quot;&quot;
@@ -104,7 +104,7 @@ def counter(n: int) -&gt; int:
 counter(1000000)
 </code></pre>
 <p>It is important to note that the last line is equivalent to <code>logger(timer(counter))(1000000)</code> and <strong>not</strong> <code>logger(timer(counter(1000000)))</code>. The decorator first wraps the function and returns it, so you are calling the end result of this chain which is <code>logger(timer(counter))</code>, where counter is just the function object and not called yet. Think <code>counter</code> vs <code>counter()</code>.</p>
-<h2>A minor issue and a nice solution</h2>
+<h2>a minor issue and a nice solution</h2>
 <p>As you already know, objects in python have a ton of interesting and helpful attributes and metadata. Functions are another type of object, therefore they have their own set of attributes. Take this example:</p>
 <pre><code class="language-python">def add_one(n: int) -&gt; int:
     &quot;&quot;&quot;returns the number incremented by one&quot;&quot;&quot;
@@ -153,7 +153,7 @@ print(add_one.__name__)  # add_one
 print(add_one.__annotations__)  # {'n': &lt;class 'int'&gt;, 'return': &lt;class 'int'&gt;}
 </code></pre>
 <p>It is interesting how we solve the issue by decorating our decorator, but if you consider what metaprogramming is (programming with code instead of values) it makes total sense! Python handles the reference logistics behind the scenes for us and our code remains as close to the original as possible.</p>
-<h2>An interesting edge case</h2>
+<h2>an interesting edge case</h2>
 <p>Just as an excuse to introduce some extra depth into the discussion, let's work with a recursive function.</p>
 <pre><code class="language-python">def factorial(n: int) -&gt; int:
     &quot;&quot;&quot;calculates the factorial&quot;&quot;&quot;
@@ -275,7 +275,7 @@ def factorial(n: int) -&gt; int:
 factorial(5)
 </code></pre>
 <p>The end result is what we want, one set of logging statements. We had to keep a separate reference to the original function but this is a consequence of how variables and scope works in python.</p>
-<h2>Closing</h2>
+<h2>closing</h2>
 <p>As already mentioned, metaprogramming is a niche topic and you can have a lengthy career without having to actively use it much. Make no mistake, you are probably using it every day as an end user but I have rarely, if ever, had to make my own decorator so far.</p>
 <p>However, the focus of this post (and this blog) is not about teaching and learning how to do things, but rather about how things are done. It pays dividends to know the underlying mechanisms, what is possible and the extent of the tools and possibilities provided by a language.</p>
 <p>You will probably (and hopefully) never need to use <code>.__closure__[0].cell_contents.__closure__[0].cell_contents(3)</code> but this works as an interesting example of how functions are objects, have attributes, can hold data and metadata and so much more.</p>

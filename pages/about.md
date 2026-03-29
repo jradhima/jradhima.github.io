@@ -17,4 +17,4 @@ It supports:
 
 I tried using static site generators but gave up because the complexity was just not worth the effort. After all, all I needed was just some way to publish basic texts. Keep it simple!
 
-You can find the source code in [my github page](https://github.com/jradhima/pydea).
+You can find the source code in [my github page](https://github.com/jradhima/jradhima.github.io).

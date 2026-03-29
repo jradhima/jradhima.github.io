@@ -151,9 +151,8 @@ def build():
                 post_list_html += '</ul>\n'
             post_list_html += f'<h2 class="month-heading">{key}</h2>\n<ul class="post-list">\n'
             current_key = key
-        date_str = f'<span class="date">{date}</span>' if date else ""
-        meta_str = f'<span class="post-meta-inline">{post["word_count"]} words · {post["read_time"]} min read</span>' if post.get("word_count") else ""
-        post_list_html += f'  <li><a href="{post["slug"]}.html">{post["title"]}</a>{date_str}{meta_str}</li>\n'
+        meta_str = f'<span class="post-meta-inline">{post["read_time"]} min read</span>' if post.get("read_time") else ""
+        post_list_html += f'  <li><a href="{post["slug"]}.html">{post["title"]}</a>{meta_str}</li>\n'
     if current_key is not None:
         post_list_html += '</ul>\n'
 

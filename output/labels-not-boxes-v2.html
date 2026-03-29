@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Labels, not boxes - pt2 — yannis radhima</title>
+  <title>labels, not boxes - pt2 — yannis radhima</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body>
@@ -21,9 +21,9 @@
   </header>
   <main>
     <div class="post-meta">2025-08-26 — 881 words — 6 min read</div>
-<h1>Labels, not boxes</h1>
+<h1>labels, not boxes</h1>
 <p>Simple stuff is simple but chain a lot of simple stuff together and you definitely reach a point where the complexity builds up. Continuing on the [previous post]({{&lt; ref &quot;posts/labels-not-boxes.md&quot; &gt;}}), here’s a more advanced look at Python containers.</p>
-<h2>Containers</h2>
+<h2>containers</h2>
 <p>With the term <code>containers</code> I refer to data structures that contain other objects: lists, tuples, dictionaries, etc. They can hold any objects, even themselves!</p>
 <pre><code class="language-python">l = [1, 2]
 print(id(l))  # list ID
@@ -37,7 +37,7 @@ print(l[-1][0])   # 1
 print(l[-1][-1])  # [1, 2, [...]]
 </code></pre>
 <p>Pointer logic works more or less the same in all languages so the above is not very surprising, but it showcases whats possible when working with references.</p>
-<h2>Mutable containers</h2>
+<h2>mutable containers</h2>
 <p>Consider a function that sorts and modifies a list of dicts:</p>
 <pre><code class="language-python">def process_and_modify(dict_list: list[dict]) -&gt; list[dict]:
     sorted_list = sorted(dict_list, key=lambda d: d[&quot;name&quot;])
@@ -66,7 +66,7 @@ print(original_list)
 <li>modifications to the shared data persist regardless of what the function returns</li>
 </ul>
 <p>The lesson here is that by copying by object reference, Python minimizes the memory overhead while also maximizing the risk of unintentional modifications to the data.</p>
-<h2>A (slightly) more complex example</h2>
+<h2>a (slightly) more complex example</h2>
 <p>A large part of what <strong>pythonic</strong> means, to me at least, is knowing and using the tools the language provides to streamline and perform certain operations. I will talk about this in a future post but for now, let me introduce <code>itertools.groupby</code>. Here's a short example of how it works:</p>
 <pre><code class="language-python">from itertools import groupby
 
@@ -150,7 +150,7 @@ print(users)
 # scores updated, order changed by hair length
 </code></pre>
 <p>There is no need for new structures or containers! The list and the items are modified in place because <code>groupby</code> simply returns references to the underlying dicts.</p>
-<h2>Closing</h2>
+<h2>closing</h2>
 <p>Working with containers in Python boils down to a simple idea: everything is a reference. Knowing this, a lot of Python’s behavior feels less &quot;weird&quot; and more &quot;logical&quot;.</p>
 <p>The key takeaways are:</p>
 <ul>
