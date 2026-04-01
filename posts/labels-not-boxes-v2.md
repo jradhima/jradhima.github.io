@@ -5,7 +5,7 @@ date: 2025-08-26
 
 # labels, not boxes
 
-Simple stuff is simple but chain a lot of simple stuff together and you definitely reach a point where the complexity builds up. Continuing on the [previous post]({{< ref "posts/labels-not-boxes.md" >}}), here’s a more advanced look at Python containers.
+Simple stuff is simple but chain a lot of simple stuff together and you definitely reach a point where the complexity builds up. Continuing on the previous post, here’s a more advanced look at Python containers.
 
 ## containers
 
