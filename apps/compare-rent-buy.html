@@ -909,17 +909,14 @@
     const downPayment = c.home_price * c.down_payment_pct;
     const loan        = c.home_price - downPayment;
     const mortgagePayment = monthlyMortgagePayment(loan, c.mortgage_rate, c.mortgage_term);
-    const monthlyCostsBuy =
-      mortgagePayment +
-      c.home_price * c.property_tax_pct / 12 +
-      c.home_price * c.maintenance_cost_pct / 12;
-
     let rent        = c.rent_monthly;
     let rentInvest  = downPayment + c.fixed_buying_costs;
     let buyInvest   = 0;
     let loanBalance = loan;
     let homeValue   = c.home_price;
     const monthlyReturn = c.stock_market_return / 12;
+    const monthlyTaxMaint = (c.home_price * c.property_tax_pct / 12) +
+                            (c.home_price * c.maintenance_cost_pct / 12);
 
     const labels = [], rentSeries = [], buySeries = [];
     const rentPortSeries = [], equitySeries = [], buyPortSeries = [];
@@ -928,6 +925,10 @@
 
     for (let y = 1; y <= c.years; y++) {
       for (let m = 0; m < 12; m++) {
+        // After mortgage is paid off, buyer only pays tax + maintenance
+        const mortgageComponent = loanBalance > 0 ? mortgagePayment : 0;
+        const monthlyCostsBuy = mortgageComponent + monthlyTaxMaint;
+
         rentInvest  = rentInvest  * (1 + monthlyReturn) + (income - rent);
         buyInvest   = buyInvest   * (1 + monthlyReturn) + (income - monthlyCostsBuy);
         loanBalance = amortizationStep(loanBalance, c.mortgage_rate, mortgagePayment);
