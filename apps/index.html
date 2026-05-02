@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apps</title>
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    .apps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+    .app-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem; text-decoration: none; color: inherit; transition: box-shadow 0.2s; display: block; }
+    .app-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .app-card h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #0066cc; }
+    .app-card p { margin: 0; color: #666; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Apps</h1>
+    <p>A collection of handy tools and calculators.</p>
+    <div class="apps-grid">
+      <a href="compare-rent-buy.html" class="app-card">
+        <h2>Compare Rent vs Buy</h2>
+        <p>Should you rent or buy? Compare costs and find out which option makes more financial sense.</p>
+      </a>
+    </div>
+    <a href="../index.html" style="display: inline-block; margin-top: 2rem; color: #0066cc;">&larr; Back to Home</a>
+  </main>
+</body>
+</html>

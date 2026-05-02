@@ -114,6 +114,12 @@ def build():
         with open(os.path.join("output", f"{page['slug']}.html"), "w") as f:
             f.write(output)
 
+    # Copy apps
+    apps_dir = "apps"
+    if os.path.isdir(apps_dir):
+        output_apps = os.path.join("output", "apps")
+        shutil.copytree(apps_dir, output_apps)
+
     # Render index
     post_list_html = ''
     current_key = None
