@@ -88,6 +88,26 @@
 
     .run-btn svg { width: 14px; height: 14px; }
 
+    .export-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+    .export-btn:not(:disabled):hover { color: var(--text); border-color: var(--muted); }
+    .export-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .export-btn svg { width: 14px; height: 14px; }
+
     /* ── SIDEBAR ─────────────────────────────────────────────── */
     .sidebar {
       grid-row: 2;
@@ -537,12 +557,20 @@
   <!-- TOPBAR -->
   <header class="topbar">
     <div class="logo">RENT<span>/</span>BUY <span style="color:var(--muted);font-weight:400">SIMULATOR</span></div>
-    <button class="run-btn" onclick="runCalc()">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-        <polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/>
-      </svg>
-      RUN SIMULATION
-    </button>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="export-btn" id="exportBtn" onclick="exportCSV()" disabled>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 2v8M5 7l3 3 3-3M3 13h10"/>
+        </svg>
+        EXPORT CSV
+      </button>
+      <button class="run-btn" onclick="runCalc()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/>
+        </svg>
+        RUN SIMULATION
+      </button>
+    </div>
   </header>
 
   <!-- SIDEBAR -->
@@ -790,6 +818,62 @@
 </div>
 
 <script>
+  // ── EXPORT ───────────────────────────────────────────────
+  let lastRun = null;
+
+  function exportCSV() {
+    if (!lastRun) return;
+    const { inputs, rows } = lastRun;
+
+    const q = v => `"${v}"`;
+    const lines = [];
+
+    // ── Section 1: Assumptions
+    lines.push("RENT VS BUY SIMULATION — ASSUMPTIONS");
+    lines.push(`Generated,${new Date().toLocaleDateString("en-GB")}`);
+    lines.push("");
+    lines.push("Parameter,Value");
+    lines.push(`Simulation Period (years),${inputs.years}`);
+    lines.push(`Monthly Net Income,${inputs.net_income_monthly}`);
+    lines.push(`Income Raise / Year,${inputs.income_annual_raise}`);
+    lines.push(`Home Price,${inputs.home_price}`);
+    lines.push(`Down Payment (%),${inputs.down_payment_pct * 100}`);
+    lines.push(`Mortgage Rate,${inputs.mortgage_rate}`);
+    lines.push(`Mortgage Term (years),${inputs.mortgage_term}`);
+    lines.push(`Home Appreciation (%),${inputs.home_appreciation * 100}`);
+    lines.push(`Maintenance Cost (%),${inputs.maintenance_cost_pct * 100}`);
+    lines.push(`Property Tax (%),${inputs.property_tax_pct * 100}`);
+    lines.push(`Fixed Buying Costs,${inputs.fixed_buying_costs}`);
+    lines.push(`Monthly Rent,${inputs.rent_monthly}`);
+    lines.push(`Annual Rent Increase (%),${inputs.rent_increase_rate * 100}`);
+    lines.push(`Market Return (%),${inputs.stock_market_return * 100}`);
+    lines.push("");
+
+    // ── Section 2: Year-by-year results
+    lines.push("YEAR-BY-YEAR RESULTS");
+    lines.push("Year,Rent Portfolio,Rent Net Worth,Buy Portfolio,House Equity,Buy Net Worth,Delta (Buy - Rent),Winner");
+    for (const r of rows) {
+      lines.push([
+        r.year,
+        Math.round(r.rentPort),
+        Math.round(r.rentNW),
+        Math.round(r.buyPort),
+        Math.round(r.equity),
+        Math.round(r.buyNW),
+        Math.round(r.delta),
+        r.delta >= 0 ? "Buy" : "Rent"
+      ].join(","));
+    }
+
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `rent-vs-buy-${inputs.years}yr.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // ── CHART 1 INIT ─────────────────────────────────────────
   const ctx = document.getElementById("chart").getContext("2d");
 
@@ -1037,6 +1121,21 @@
 
     document.getElementById("bd-buy-costs").textContent         = "−" + fmt(c.fixed_buying_costs);
     document.getElementById("bd-buy-total").textContent         = fmt(finalBuy);
+
+    // ── STORE RESULTS FOR EXPORT ─────────────────────────────
+    lastRun = {
+      inputs: { ...c },
+      rows: labels.map((y, i) => ({
+        year:    y,
+        rentPort: rentPortSeries[i],
+        rentNW:   rentSeries[i],
+        buyPort:  buyPortSeries[i],
+        equity:   equitySeries[i],
+        buyNW:    buySeries[i],
+        delta:    buySeries[i] - rentSeries[i],
+      }))
+    };
+    document.getElementById("exportBtn").disabled = false;
   }
 
   runCalc();
