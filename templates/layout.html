@@ -3,8 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google-site-verification" content="UP47e-0jEty8cA8Owx9VFpXdoxi_46UyITXwApLIPoU">
   <title>{% if title %}{{ title }} — {% endif %}{{ config.site.title }}</title>
   {% if description %}<meta name="description" content="{{ description }}">{% endif %}
+  {% if config.site.author %}<meta name="author" content="{{ config.site.author }}">{% endif %}
+  {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+  <meta property="og:type" content="{% if is_post %}article{% else %}website{% endif %}">
+  <meta property="og:title" content="{% if title %}{{ title }}{% else %}{{ config.site.title }}{% endif %}">
+  {% if description %}<meta property="og:description" content="{{ description }}">{% endif %}
+  {% if canonical %}<meta property="og:url" content="{{ canonical }}">{% endif %}
+  <meta property="og:site_name" content="{{ config.site.title }}">
+  {% if is_post %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": {{ title|tojson }},
+    "author": {"@type": "Person", "name": {{ (config.site.author or config.site.title)|tojson }}},
+    "url": {{ canonical|tojson }}{% if published %},
+    "datePublished": {{ published|tojson }}{% endif %}{% if description %},
+    "description": {{ description|tojson }}{% endif %}
+  }
+  </script>
+  {% endif %}
   <link rel="stylesheet" href="style.css">
   {% if '<pre' in content %}
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.css">

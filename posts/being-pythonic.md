@@ -1,6 +1,7 @@
 ---
 title: "pythonic code"
 date: 2025-09-13
+description: "What idiomatic Python means, why it matters, and practical examples with list comprehensions, counters, and more."
 ---
 
 # pythonic code

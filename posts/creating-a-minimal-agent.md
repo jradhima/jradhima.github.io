@@ -1,6 +1,7 @@
 ---
 title: "coding a minimal ai coding agent"
 date: 2026-06-01
+description: "How I built a minimal AI coding agent in Python, including the design decisions and the code behind it."
 ---
 
 # building a minimal ai coding agent

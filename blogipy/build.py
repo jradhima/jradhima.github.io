@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 from datetime import datetime
+from xml.sax.saxutils import escape as xml_escape
 
 import mistune
 import yaml
@@ -58,7 +59,13 @@ def scan_content(directory):
 
 def build():
     config = load_config()
+    base_url = config["site"].get("url", "").rstrip("/")
     md = mistune.html
+
+    def canonical_for(slug=None):
+        if not base_url:
+            return ""
+        return f"{base_url}/{slug}.html" if slug else f"{base_url}/"
 
     if os.path.exists("output"):
         shutil.rmtree("output")
@@ -90,10 +97,41 @@ def build():
         word_count = len(post["body"].split())
         post["word_count"] = word_count
         post["read_time"] = max(1, round(word_count / 150))
+        published = parse_date(post.get("date"))
+        post["published"] = published.strftime("%Y-%m-%d") if published else ""
     for page in pages:
         page["html"] = md(page["body"])
 
     posts.sort(key=lambda p: parse_date(p.get("date")) or datetime.min, reverse=True)
+
+    # Sitemap and robots.txt
+    if base_url:
+        post_dates = [parse_date(p.get("date")) for p in posts]
+        latest = max((d for d in post_dates if d), default=None)
+        entries = [(canonical_for(), latest)]
+        entries += [(canonical_for(p["slug"]), d) for p, d in zip(posts, post_dates)]
+        entries += [(canonical_for(p["slug"]), None) for p in pages]
+
+        lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        ]
+        for loc, lastmod in entries:
+            lines.append("  <url>")
+            lines.append(f"    <loc>{xml_escape(loc)}</loc>")
+            if lastmod:
+                lines.append(f"    <lastmod>{lastmod.strftime('%Y-%m-%d')}</lastmod>")
+            lines.append("  </url>")
+        lines.append("</urlset>")
+
+        with open(os.path.join("output", "sitemap.xml"), "w") as f:
+            f.write("\n".join(lines) + "\n")
+
+    robots = "User-agent: *\nAllow: /\n"
+    if base_url:
+        robots += f"\nSitemap: {base_url}/sitemap.xml\n"
+    with open(os.path.join("output", "robots.txt"), "w") as f:
+        f.write(robots)
 
     env = Environment(loader=FileSystemLoader("templates"))
     layout = env.get_template("layout.html")
@@ -105,6 +143,9 @@ def build():
             config=config,
             title=post["title"],
             description=post["meta"].get("description") or config["site"].get("description", ""),
+            canonical=canonical_for(post["slug"]),
+            is_post=True,
+            published=post["published"],
             pages=page_list,
             content=f'<div class="post-meta">{post["date"]} — {post["word_count"]} words — {post["read_time"]} min read</div>\n{post["html"]}',
         )
@@ -117,6 +158,7 @@ def build():
             config=config,
             title=page["title"],
             description=page["meta"].get("description") or config["site"].get("description", ""),
+            canonical=canonical_for(page["slug"]),
             pages=page_list,
             content=page["html"],
         )
@@ -149,6 +191,7 @@ def build():
         config=config,
         title=None,
         description=config["site"].get("description", ""),
+        canonical=canonical_for(),
         pages=page_list,
         content=post_list_html,
     )

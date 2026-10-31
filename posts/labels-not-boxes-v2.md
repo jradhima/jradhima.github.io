@@ -1,6 +1,7 @@
 ---
 title: "labels, not boxes - pt2"
 date: 2025-08-26
+description: "A deeper look at Python containers, references, and how values are stored and passed around."
 ---
 
 # labels, not boxes

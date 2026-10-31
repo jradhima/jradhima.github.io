@@ -1,5 +1,6 @@
 ---
 title: About
+description: "About Yannis Radhima, a cloud and data engineer based in Belgium."
 ---
 
 # About

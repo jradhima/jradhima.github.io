@@ -1,6 +1,7 @@
 ---
 title: "decorators explained"
 date: 2025-09-21
+description: "A practical explanation of Python decorators: what they are, how they work, and when to use them."
 ---
 
 # decorators explained

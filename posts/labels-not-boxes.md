@@ -1,6 +1,7 @@
 ---
 title: "labels, not boxes - pt1"
 date: 2025-08-12
+description: "Why Python variables are references to objects, and what that means for lists, tuples, and assignment."
 ---
 
 # labels, not boxes

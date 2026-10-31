@@ -1,6 +1,7 @@
 ---
 title: "vibe coding a minimalist blog generator"
 date: 2026-03-29
+description: "How I used an AI agent to build a minimal Markdown blog generator, and what it taught me about vibe coding."
 ---
 
 # vibe coding a minimalist blog generator

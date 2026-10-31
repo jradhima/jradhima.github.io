@@ -66,6 +66,8 @@ Edit `config.yaml`:
 site:
   title: "My Blog"
   description: "A simple blog"
+  url: "https://example.com"
+  author: "Your Name"
 
 style:
   font_family: "system-ui, -apple-system, sans-serif"
@@ -78,3 +80,5 @@ style:
 ```
 
 Code highlighting is handled by highlight.js with the "atom-one-light" theme.
+
+The build also writes `sitemap.xml` and `robots.txt` using `site.url`.
