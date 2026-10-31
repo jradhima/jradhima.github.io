@@ -19,12 +19,19 @@ def load_config(path="config.yaml"):
 def parse_front_matter(text):
     match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", text, re.DOTALL)
     if match:
-        meta = yaml.safe_load(match.group(1))
+        meta = yaml.safe_load(match.group(1)) or {}
         body = match.group(2)
     else:
         meta = {}
         body = text
     return meta, body
+
+
+def parse_date(value):
+    try:
+        return datetime.strptime(str(value), "%Y-%m-%d")
+    except (TypeError, ValueError):
+        return None
 
 
 def scan_content(directory):
@@ -82,11 +89,11 @@ def build():
         post["html"] = md(post["body"])
         word_count = len(post["body"].split())
         post["word_count"] = word_count
-        post["read_time"] = round(word_count / 150)
+        post["read_time"] = max(1, round(word_count / 150))
     for page in pages:
         page["html"] = md(page["body"])
 
-    posts.sort(key=lambda p: str(p.get("date", "")), reverse=True)
+    posts.sort(key=lambda p: parse_date(p.get("date")) or datetime.min, reverse=True)
 
     env = Environment(loader=FileSystemLoader("templates"))
     layout = env.get_template("layout.html")
@@ -97,6 +104,7 @@ def build():
         output = layout.render(
             config=config,
             title=post["title"],
+            description=post["meta"].get("description") or config["site"].get("description", ""),
             pages=page_list,
             content=f'<div class="post-meta">{post["date"]} — {post["word_count"]} words — {post["read_time"]} min read</div>\n{post["html"]}',
         )
@@ -108,6 +116,7 @@ def build():
         output = layout.render(
             config=config,
             title=page["title"],
+            description=page["meta"].get("description") or config["site"].get("description", ""),
             pages=page_list,
             content=page["html"],
         )
@@ -124,12 +133,8 @@ def build():
     post_list_html = ''
     current_key = None
     for post in posts:
-        date = post.get("date")
-        if date:
-            dt = datetime.strptime(str(date), "%Y-%m-%d")
-            key = dt.strftime("%B %Y")
-        else:
-            key = "Unknown"
+        dt = parse_date(post.get("date"))
+        key = dt.strftime("%B %Y") if dt else "Unknown"
         if key != current_key:
             if current_key is not None:
                 post_list_html += '</ul>\n'
@@ -143,6 +148,7 @@ def build():
     output = layout.render(
         config=config,
         title=None,
+        description=config["site"].get("description", ""),
         pages=page_list,
         content=post_list_html,
     )

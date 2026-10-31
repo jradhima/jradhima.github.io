@@ -8,10 +8,6 @@
   --link: FILL_IN_link_color;
 }
 
-pre code {
-  font-size: 0.85em;
-}
-
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -99,9 +95,9 @@ code {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: #ccc;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.06);
+  color: #555;
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 4px;
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
@@ -110,8 +106,8 @@ code {
 }
 
 .copy-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background: rgba(0, 0, 0, 0.12);
+  color: #222;
 }
 
 blockquote {

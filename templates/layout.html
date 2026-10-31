@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% if title %}{{ title }} — {% endif %}{{ config.site.title }}</title>
+  {% if description %}<meta name="description" content="{{ description }}">{% endif %}
   <link rel="stylesheet" href="style.css">
+  {% if '<pre' in content %}
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  {% endif %}
 </head>
 <body>
   <header>
@@ -23,6 +25,8 @@
   <main>
     {{ content }}
   </main>
+  {% if '<pre' in content %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script>
     hljs.highlightAll();
 
@@ -45,5 +49,6 @@
       pre.appendChild(btn);
     });
   </script>
+  {% endif %}
 </body>
 </html>

@@ -21,4 +21,3 @@ include = ["blogipy*"]
 
 [tool.uv]
 package = true
-dev-dependencies = []

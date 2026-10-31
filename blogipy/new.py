@@ -1,16 +1,19 @@
 """Create new blog posts."""
 
 import os
+import re
 from datetime import date
 
 
 def slugify(title):
-    return title.lower().replace(" ", "-")
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower().replace("'", "")).strip("-")
+    return slug or "post"
 
 
 def new_post(title):
     slug = slugify(title)
     today = date.today().isoformat()
+    os.makedirs("posts", exist_ok=True)
     filepath = os.path.join("posts", f"{slug}.md")
 
     if os.path.exists(filepath):
