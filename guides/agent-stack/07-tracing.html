@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tracing Agent Runs</title>
+<meta name="description" content="Distributed tracing for agents: spans and traces, context propagation across processes, OpenTelemetry GenAI conventions, redaction, cost, replay and evals.">
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--line:#e2ded5;--accent:#b4532a;--accent-soft:#f6e6dc;--ok:#2f6b45;--ok-soft:#e1efe5;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--bad-soft:#f6e0e0;--code-bg:#f4f2ed;--code-text:#2a2824;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:780px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .sp{flex:1}
+.topbar details{position:relative}
+.topbar summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:var(--surface)}
+.topbar summary::-webkit-details-marker{display:none}
+.topbar .menu{position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.topbar .menu a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.topbar .menu a:hover{background:var(--surface-2)}
+.topbar .menu a.cur{color:var(--accent);font-weight:600}
+.topbar .menu .n{display:inline-block;width:26px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.themebtn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+main{max-width:780px;margin:0 auto;padding:40px 20px 100px}
+.kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--serif);font-size:42px;line-height:1.12;margin:10px 0 12px;font-weight:600;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.2;margin:60px 0 6px;font-weight:600;scroll-margin-top:70px}
+h3{font-size:18px;margin:30px 0 6px;scroll-margin-top:70px}
+h4{font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:10px 0 14px}
+.lede{font-size:19px;color:var(--muted)}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0 18px}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+pre .c{color:var(--muted);font-style:italic}
+pre .k{color:var(--accent)}
+pre b{color:var(--accent);font-weight:600}
+.cap{font-size:12px;color:var(--muted);font-family:var(--mono);margin:16px 0 -8px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:14px 0 20px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+.callout b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.callout.why{background:var(--accent-soft);border-color:transparent}.callout.why b.t{color:var(--accent)}
+.callout.gotcha{background:var(--warn-soft);border-color:transparent}.callout.gotcha b.t{color:var(--warn)}
+.callout.ok{background:var(--ok-soft);border-color:transparent}.callout.ok b.t{color:var(--ok)}
+.callout.bad{background:var(--bad-soft);border-color:transparent}.callout.bad b.t{color:var(--bad)}
+.callout p:first-of-type{margin-top:0}.callout p:last-child,.callout ul:last-child,.callout ol:last-child{margin-bottom:0}
+.oneminute{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.oneminute b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}
+.oneminute p:last-child{margin-bottom:0}.oneminute p:first-of-type{margin-top:0}
+ol.steps{list-style:none;counter-reset:st;padding:0;margin:16px 0 20px}
+ol.steps>li{counter-increment:st;position:relative;padding:2px 0 12px 42px;border-left:2px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent}
+ol.steps>li::before{content:counter(st);position:absolute;left:-14px;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:600 13px/26px var(--sans);text-align:center}
+ol.steps pre{margin:8px 0 4px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0;font-size:13.5px}
+.flow .b{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:12.5px}
+.flow .b.hl{border-color:var(--accent);color:var(--accent)}
+.flow .ar{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 4px;color:var(--text);text-transform:none;letter-spacing:0;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+a.card{text-decoration:none;color:inherit;display:block}
+a.card:hover{border-color:var(--accent)}
+.spec{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 18px 10px;margin:18px 0}
+.spec>b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 2px}
+.spec ul{margin:6px 0 10px;padding-left:20px}
+ul.tight li,ol.tight li{margin:3px 0}
+.check{margin:28px 0 0}
+details.q{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+details.q summary{cursor:pointer;font-weight:600}
+details.q[open] summary{margin-bottom:6px}
+details.q p:last-child{margin-bottom:4px}
+.nextprev{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:70px;padding-top:24px;border-top:1px solid var(--line)}
+.nextprev a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-decoration:none;color:var(--text);background:var(--surface)}
+.nextprev a:hover{border-color:var(--accent)}
+.nextprev small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.nextprev .nx{text-align:right;grid-column:2}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:4px}
+.stack{margin:22px 0;display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:160px 1fr 120px;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14.5px;text-decoration:none;color:var(--text)}
+.layer:hover{border-color:var(--accent)}
+.layer .n{font-weight:600}.layer .d{color:var(--muted)}.layer .c{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+@media (max-width:680px){h1{font-size:32px}h2{font-size:24px}.grid2{grid-template-columns:1fr}.layer{grid-template-columns:1fr;gap:2px}.layer .c{text-align:left}.nextprev{grid-template-columns:1fr}.nextprev .nx{grid-column:1}.topbar .home span{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+<a class="home" href="index.html">◆ <span>Agent stack guide</span></a>
+<div class="sp"></div>
+<details><summary>Contents ▾</summary><div class="menu">
+<a href="index.html"><span class="n">·</span>Start here</a>
+<a href="01-processes.html"><span class="n">01</span>Processes &amp; syscalls</a>
+<a href="02-mcp.html"><span class="n">02</span>Tools over MCP</a>
+<a href="03-isolation.html"><span class="n">03</span>Isolation</a>
+<a href="04-network.html"><span class="n">04</span>Network &amp; egress</a>
+<a href="05-identity.html"><span class="n">05</span>Identity &amp; secrets</a>
+<a href="06-policy.html"><span class="n">06</span>Policy &amp; injection</a>
+<a href="07-tracing.html" class=cur><span class="n">07</span>Tracing</a>
+<a href="08-control-plane.html"><span class="n">08</span>Run control plane</a>
+<a href="09-harness.html"><span class="n">09</span>The harness</a>
+<a href="10-build-plan.html"><span class="n">10</span>Build plan</a>
+</div></details>
+<button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
+</div></div>
+<main>
+<div class="kicker">Part 7 · Component: trace</div>
+<h1>Tracing agent runs</h1>
+<p class="lede">How to know what an agent did, in what order, why it took so long and what it cost, across several processes, without leaking secrets into your logs.</p>
+<div class="oneminute"><b class="t">In one minute</b>
+<p>An agent run is dozens of model calls and tool calls across several processes, sometimes over hours. When it does something wrong, slow or expensive, you need the story: what it saw, what it decided, in what order, how long each step took and what it cost. A <b>trace</b> is that story as a tree of timed operations ("spans"). The interesting engineering is keeping one tree across process boundaries, deciding what to record, and making sure secrets never end up in it.</p></div>
+
+<h2 id="three">Logs, metrics, traces</h2>
+<div class="tw"><table>
+<tr><th></th><th>What it is</th><th>Answers</th><th>Example</th></tr>
+<tr><td><b>Logs</b></td><td>Timestamped lines of text or JSON</td><td>"What happened at 14:02?"</td><td><code>tool run_command exit=1</code></td></tr>
+<tr><td><b>Metrics</b></td><td>Numbers aggregated over time</td><td>"How many runs failed today? What's the average cost?"</td><td><code>runs_failed_total 12</code></td></tr>
+<tr><td><b>Traces</b></td><td>Trees of timed, nested operations</td><td>"Why did <em>this</em> run take 12 minutes, and what led to that action?"</td><td>The tree below</td></tr>
+</table></div>
+<p>For agents, traces are the most useful of the three, because the questions are about one specific run's sequence of decisions. Metrics can be derived from traces later.</p>
+<pre><code>run "fix failing test"                            12.4s   $0.031
+├─ chat  (in 4.1k / out 220 tokens)                1.9s
+├─ policy.decide run_command → allow               0.1ms
+├─ execute_tool run_command "go test ./..."        4.2s    exit=1
+│  └─ box.run                                      4.1s    peak 178 MB
+├─ chat  (in 5.3k / out 410 tokens)                2.3s
+├─ execute_tool write_file parser.go               10ms
+└─ execute_tool run_command "go test ./..."        3.8s    exit=0</code></pre>
+
+<h2 id="span">Anatomy of a span</h2>
+<pre><code>{
+  "trace_id":  "4bf92f3577b34da6a3ce929d0e0e4736",   <span class="c">// shared by every span in this run</span>
+  "span_id":   "00f067aa0ba902b7",                   <span class="c">// this operation</span>
+  "parent_id": "a3ce929d0e0e4736",                   <span class="c">// the operation it happened inside</span>
+  "name":      "execute_tool run_command",
+  "start":     "2026-11-03T09:30:02.114Z",
+  "end":       "2026-11-03T09:30:06.320Z",
+  "status":    "error",
+  "attributes": {
+    "gen_ai.operation.name": "execute_tool",
+    "gen_ai.tool.name":      "run_command",
+    "gen_ai.tool.call.id":   "call_7",
+    "box.exit_code":         1,
+    "box.peak_memory_bytes": 187236352
+  },
+  "events": [{"time": "…", "name": "output_truncated", "attributes": {"original_bytes": 5242880}}]
+}</code></pre>
+<p>The tree is built purely from <code>parent_id</code> links: any span whose parent is another span's ID is drawn under it. Attributes are key-value facts. Events are timestamped moments inside a span.</p>
+
+<h2 id="building">How a trace gets built, step by step</h2>
+<ol class="steps">
+  <li><b>The run starts.</b> The harness creates a <b>root span</b> named <code>run</code>, with a fresh random trace ID and no parent.</li>
+  <li><b>The harness calls the model.</b> It starts a <code>chat</code> span whose parent is the root span, records the model name, and when the response arrives adds the token counts and ends the span.</li>
+  <li><b>The model asks for a tool.</b> The harness starts an <code>execute_tool</code> span (parent: root), with a child span for the policy decision.</li>
+  <li><b>The tool runs in another process.</b> The harness passes the trace context along (next section), so <code>mcpbox</code> and <code>box</code> can create spans whose parent is the <code>execute_tool</code> span, even though they're separate programs.</li>
+  <li><b>Each span is ended and exported</b> as it finishes: written to a file, or sent to a tracing backend. The viewer reassembles the tree from the IDs.</li>
+</ol>
+<p>Inside one Go process, the "current span" travels in a <code>context.Context</code>. Starting a span returns a new context; anything started with that context becomes its child automatically:</p>
+<pre><code>ctx, span := tracer.Start(ctx, "execute_tool "+call.Name, trace.WithAttributes(
+    attribute.String("gen_ai.operation.name", "execute_tool"),
+    attribute.String("gen_ai.tool.name", call.Name),
+    attribute.String("gen_ai.tool.call.id", call.ID),
+))
+defer span.End()
+res, err := runner.Run(ctx, spec)    <span class="c">// spans started inside Run nest under this one</span></code></pre>
+
+<h2 id="propagation">Crossing process boundaries</h2>
+<p>A <code>context.Context</code> doesn't cross into another process. The trace context has to be written into whatever goes between them. The standard format is the W3C <b><code>traceparent</code></b> string:</p>
+<pre><code>00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+│  │                                │                └ flags (01 = sampled: record it)
+│  │                                └ parent span ID (the span on the sending side)
+│  └ trace ID
+└ version</code></pre>
+<p>Each hop needs a carrier, and in this stack each hop is different:</p>
+<ol class="steps">
+  <li><b>Harness → mcpbox (MCP):</b> MCP requests have a <code>_meta</code> field for extra data. Put <code>"traceparent": "00-…"</code> there in each <code>tools/call</code>. Your server reads it and starts its spans as children. (This is a convention you choose; check whether a standard has emerged by the time you build it.)</li>
+  <li><b>mcpbox → box:</b> pass it as an environment variable, <code>TRACEPARENT</code>, to the <code>box</code> process (if box is a separate CLI) or just pass the <code>ctx</code> (if mcpbox imports box as a package).</li>
+  <li><b>Sandboxed program → gate:</b> the interesting one. For HTTPS without decryption, the gate can't see any header inside the tunnel. But it knows <em>which run</em> a connection belongs to, from the socket the connection arrived on (<a href="04-network.html#enforce">Design B</a>). So the gate records spans tagged with the run's ID and the box span's ID it was given when the run was set up. The tree stays connected through run identity rather than through headers.</li>
+</ol>
+<div class="callout why"><b class="t">Why this is worth doing properly</b>
+<p>Without propagation you get three disconnected stories: the harness thinks the tool took 4 seconds, box knows the process used 178 MB, and the gate knows it refused a connection. With it, you see that the tool call was slow <em>because</em> <code>npm install</code> kept retrying a host the gate refused. Getting this right end to end teaches you how distributed tracing works in any system.</p></div>
+
+<h2 id="otel">OpenTelemetry, briefly</h2>
+<p><b>OpenTelemetry</b> (OTel) is the vendor-neutral standard for producing traces (and metrics and logs). The pieces:</p>
+<ul class="tight">
+  <li><b>API:</b> what your code calls (<code>tracer.Start</code>, <code>span.End</code>).</li>
+  <li><b>SDK:</b> the implementation that collects spans, batches them and hands them to an exporter.</li>
+  <li><b>Exporter:</b> where spans go: a file, standard output, or a backend over OTLP, OTel's wire protocol.</li>
+  <li><b>Backend:</b> stores and displays traces. For local learning, Jaeger runs as a single container with a web UI and accepts OTLP, which gives you a free trace viewer.</li>
+</ul>
+<p>OTel also defines <b>semantic conventions</b>: agreed attribute names so different tools understand each other. The GenAI conventions cover model and tool calls, for example <code>gen_ai.operation.name</code> (<code>chat</code>, <code>execute_tool</code>), <code>gen_ai.request.model</code>, <code>gen_ai.usage.input_tokens</code>, <code>gen_ai.usage.output_tokens</code> and <code>gen_ai.tool.name</code>. They're still evolving, so treat them as a starting vocabulary and check the current version.</p>
+
+<h2 id="what">What to record, and what never to record</h2>
+<div class="tw"><table>
+<tr><th>Always</th><th>Opt-in (useful but big or sensitive)</th><th>Never</th></tr>
+<tr><td>IDs, timings, status</td><td>Full prompts and model responses</td><td>Credentials, in any form</td></tr>
+<tr><td>Model name, token counts, cost</td><td>Full tool arguments</td><td>Contents of files you know are secret (<code>.env</code>, keys)</td></tr>
+<tr><td>Tool name, exit code, duration</td><td>Full tool outputs</td><td></td></tr>
+<tr><td>Sizes and hashes of arguments and outputs</td><td></td><td></td></tr>
+<tr><td>Policy decisions, egress decisions</td><td></td><td></td></tr>
+</table></div>
+<p>Recording a <b>hash and size</b> instead of the content is a useful middle ground: you can't read the content from the trace, but you can tell whether two runs saw the same input, and look the content up elsewhere if you kept it.</p>
+
+<h3 id="redaction">Redaction happens before writing</h3>
+<p>Once a secret is written to a trace file or sent to a backend, it's too late: it's in backups, indexes, caches. So redaction runs inside the process, before export:</p>
+<ol class="steps">
+  <li><b>Known formats:</b> many tokens have recognizable shapes (GitHub tokens start with <code>ghp_</code> or <code>github_pat_</code>, AWS access keys with <code>AKIA</code>, private keys contain <code>-----BEGIN</code>). Replace matches with <code>[REDACTED:github-token]</code>.</li>
+  <li><b>Known values:</b> if a component knows the exact secrets in play, it can replace exact matches. (With <a href="05-identity.html#inject">credential injection</a>, the sandbox side ideally holds none.)</li>
+  <li><b>Truncate large payloads</b> to a fixed size and record the original size.</li>
+  <li><b>Test it:</b> a test that plants a fake token in a tool output and asserts it never appears in the exported trace.</li>
+</ol>
+
+<h2 id="cost">Cost: just arithmetic, but do it per run</h2>
+<p>Model APIs report token counts in each response: input tokens, output tokens, and often cached input tokens, which are cheaper. Multiply by the price for that model and record the result on each <code>chat</code> span, then sum it on the root span. Per-run cost, broken down by step, is the number that tells you a run spent 80% of its budget re-reading a huge file every turn, which is a harness fix (<a href="09-harness.html#context">context management</a>).</p>
+
+<h2 id="replay">Replay: re-running a run without paying for it</h2>
+<p>If the trace records the full model responses (opt-in content), you can replay a run deterministically:</p>
+<ol class="steps">
+  <li><b>Record:</b> during a real run, each model response is saved with its step number and a hash of the request that produced it.</li>
+  <li><b>Replay:</b> run the harness in replay mode. Instead of calling the model API, it returns the recorded response for each step.</li>
+  <li><b>Tools run for real</b> (or are replayed from recorded outputs too, if you want full determinism).</li>
+  <li><b>Detect divergence:</b> if the harness builds a different request than the one recorded (because you changed something), the hashes don't match, and replay stops and tells you where.</li>
+</ol>
+<p>That turns any interesting run into a free, repeatable test case for the harness itself.</p>
+
+<h2 id="evals">From traces to evals</h2>
+<p>A trace is also the input for checking behaviour. Instead of only asking "did the final answer look right?", you can assert things about the <em>trajectory</em>:</p>
+<ul class="tight">
+  <li>Tests were run after the last file edit and before the run finished.</li>
+  <li>No <code>git_push</code> happened without an approval.</li>
+  <li>The run never needed more than three attempts at the same command.</li>
+  <li>The final workspace state matches the expected one.</li>
+</ul>
+<p>A set of small tasks with assertions like these, run after each change to the harness or a component, is how you know you didn't make things worse.</p>
+
+<h2 id="build">What you'll build: trace</h2>
+<div class="spec">
+  <ul class="tight">
+    <li>A small Go package around the OTel SDK: start and end spans with the GenAI attribute names, plus your own <code>box.*</code>, <code>gate.*</code> and <code>policy.*</code> attributes.</li>
+    <li>Exporters: JSON lines to a file per run (default), and OTLP so you can view runs in Jaeger.</li>
+    <li>Propagation: <code>traceparent</code> in MCP <code>_meta</code>, in the environment for box, and by run identity at the gate.</li>
+    <li>A redaction step before export, with a test that plants a fake token.</li>
+    <li><code>trace view run.jsonl</code>: a terminal tree viewer with durations, tokens and cost.</li>
+    <li>Later: <code>trace replay run.jsonl</code>.</li>
+  </ul>
+  <b>Done means</b>
+  <ul class="tight"><li>One run produces one connected tree spanning the harness, mcpbox, box and gate, and a planted secret never appears in it.</li></ul>
+</div>
+
+<div class="check"><h2 id="check">Check yourself</h2>
+<details class="q"><summary>How does a viewer know which span goes under which?</summary><p>From the IDs alone: every span records its parent's span ID, and all spans in a run share the trace ID. The tree is reassembled from those links.</p></details>
+<details class="q"><summary>Why can't the gate read a <code>traceparent</code> header on HTTPS traffic, and how does it stay in the tree anyway?</summary><p>Without TLS termination the headers are encrypted inside the tunnel. The gate identifies the run from the connection itself (the per-run socket) and attaches its spans using the run's ID and the span context it was given at run setup.</p></details>
+<details class="q"><summary>Why redact inside the process instead of in the tracing backend?</summary><p>Because once a secret has been written or sent, copies exist in places you don't control (files, backups, indexes). Redaction has to happen before anything leaves the process.</p></details>
+<details class="q"><summary>What does recording a hash of a tool output give you that recording nothing doesn't?</summary><p>You can tell whether two runs saw identical output, and detect when the same input led to different behaviour, without storing the content itself.</p></details>
+</div>
+
+<nav class="nextprev"><a class="pv" href="06-policy.html"><small>← Previous</small>Policy &amp; injection</a><a class="nx" href="08-control-plane.html"><small>Next →</small>Run control plane</a></nav>
+<footer>Agent stack guide · a personal learning project, November 2026. · <a href="../../index.html">yannis radhima</a></footer>
+</main>
+<script>
+function toggleTheme(){var r=document.documentElement;var d=r.getAttribute('data-theme')?r.getAttribute('data-theme')==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'light':'dark');try{localStorage.setItem('theme',r.getAttribute('data-theme'))}catch(e){}}
+try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+document.addEventListener('click',function(e){var d=document.querySelector('.topbar details');if(d&&d.open&&!d.contains(e.target))d.open=false});
+</script>
+</body>
+</html>

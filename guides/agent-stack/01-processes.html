@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Processes and Syscalls</title>
+<meta name="description" content="Processes, system calls, file descriptors, fork and exec, and the Go re-exec trick, explained for Python developers.">
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--line:#e2ded5;--accent:#b4532a;--accent-soft:#f6e6dc;--ok:#2f6b45;--ok-soft:#e1efe5;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--bad-soft:#f6e0e0;--code-bg:#f4f2ed;--code-text:#2a2824;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:780px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .sp{flex:1}
+.topbar details{position:relative}
+.topbar summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:var(--surface)}
+.topbar summary::-webkit-details-marker{display:none}
+.topbar .menu{position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.topbar .menu a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.topbar .menu a:hover{background:var(--surface-2)}
+.topbar .menu a.cur{color:var(--accent);font-weight:600}
+.topbar .menu .n{display:inline-block;width:26px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.themebtn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+main{max-width:780px;margin:0 auto;padding:40px 20px 100px}
+.kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--serif);font-size:42px;line-height:1.12;margin:10px 0 12px;font-weight:600;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.2;margin:60px 0 6px;font-weight:600;scroll-margin-top:70px}
+h3{font-size:18px;margin:30px 0 6px;scroll-margin-top:70px}
+h4{font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:10px 0 14px}
+.lede{font-size:19px;color:var(--muted)}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0 18px}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+pre .c{color:var(--muted);font-style:italic}
+pre .k{color:var(--accent)}
+pre b{color:var(--accent);font-weight:600}
+.cap{font-size:12px;color:var(--muted);font-family:var(--mono);margin:16px 0 -8px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:14px 0 20px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+.callout b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.callout.why{background:var(--accent-soft);border-color:transparent}.callout.why b.t{color:var(--accent)}
+.callout.gotcha{background:var(--warn-soft);border-color:transparent}.callout.gotcha b.t{color:var(--warn)}
+.callout.ok{background:var(--ok-soft);border-color:transparent}.callout.ok b.t{color:var(--ok)}
+.callout.bad{background:var(--bad-soft);border-color:transparent}.callout.bad b.t{color:var(--bad)}
+.callout p:first-of-type{margin-top:0}.callout p:last-child,.callout ul:last-child,.callout ol:last-child{margin-bottom:0}
+.oneminute{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.oneminute b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}
+.oneminute p:last-child{margin-bottom:0}.oneminute p:first-of-type{margin-top:0}
+ol.steps{list-style:none;counter-reset:st;padding:0;margin:16px 0 20px}
+ol.steps>li{counter-increment:st;position:relative;padding:2px 0 12px 42px;border-left:2px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent}
+ol.steps>li::before{content:counter(st);position:absolute;left:-14px;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:600 13px/26px var(--sans);text-align:center}
+ol.steps pre{margin:8px 0 4px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0;font-size:13.5px}
+.flow .b{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:12.5px}
+.flow .b.hl{border-color:var(--accent);color:var(--accent)}
+.flow .ar{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 4px;color:var(--text);text-transform:none;letter-spacing:0;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+a.card{text-decoration:none;color:inherit;display:block}
+a.card:hover{border-color:var(--accent)}
+.spec{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 18px 10px;margin:18px 0}
+.spec>b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 2px}
+.spec ul{margin:6px 0 10px;padding-left:20px}
+ul.tight li,ol.tight li{margin:3px 0}
+.check{margin:28px 0 0}
+details.q{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+details.q summary{cursor:pointer;font-weight:600}
+details.q[open] summary{margin-bottom:6px}
+details.q p:last-child{margin-bottom:4px}
+.nextprev{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:70px;padding-top:24px;border-top:1px solid var(--line)}
+.nextprev a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-decoration:none;color:var(--text);background:var(--surface)}
+.nextprev a:hover{border-color:var(--accent)}
+.nextprev small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.nextprev .nx{text-align:right;grid-column:2}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:4px}
+.stack{margin:22px 0;display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:160px 1fr 120px;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14.5px;text-decoration:none;color:var(--text)}
+.layer:hover{border-color:var(--accent)}
+.layer .n{font-weight:600}.layer .d{color:var(--muted)}.layer .c{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+@media (max-width:680px){h1{font-size:32px}h2{font-size:24px}.grid2{grid-template-columns:1fr}.layer{grid-template-columns:1fr;gap:2px}.layer .c{text-align:left}.nextprev{grid-template-columns:1fr}.nextprev .nx{grid-column:1}.topbar .home span{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+<a class="home" href="index.html">◆ <span>Agent stack guide</span></a>
+<div class="sp"></div>
+<details><summary>Contents ▾</summary><div class="menu">
+<a href="index.html"><span class="n">·</span>Start here</a>
+<a href="01-processes.html" class=cur><span class="n">01</span>Processes &amp; syscalls</a>
+<a href="02-mcp.html"><span class="n">02</span>Tools over MCP</a>
+<a href="03-isolation.html"><span class="n">03</span>Isolation</a>
+<a href="04-network.html"><span class="n">04</span>Network &amp; egress</a>
+<a href="05-identity.html"><span class="n">05</span>Identity &amp; secrets</a>
+<a href="06-policy.html"><span class="n">06</span>Policy &amp; injection</a>
+<a href="07-tracing.html"><span class="n">07</span>Tracing</a>
+<a href="08-control-plane.html"><span class="n">08</span>Run control plane</a>
+<a href="09-harness.html"><span class="n">09</span>The harness</a>
+<a href="10-build-plan.html"><span class="n">10</span>Build plan</a>
+</div></details>
+<button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
+</div></div>
+<main>
+<div class="kicker">Part 1 · Foundations</div>
+<h1>Processes, syscalls and fork/exec</h1>
+<p class="lede">Every other page builds on this one. What a process is, why the kernel is the only place limits can really be enforced, and how a sandbox program starts a restricted process, with Python comparisons and a tiny Go program you can run.</p>
+<div class="oneminute"><b class="t">In one minute</b>
+<p>A running program can't touch anything (files, network, other programs) by itself. It has to ask the kernel, through <b>system calls</b>. That single doorway is why the kernel can enforce limits a program can't get around. A sandbox is a <em>process</em> the kernel has been told to restrict, and those restrictions survive <code>exec</code>, the call that swaps which program a process runs. So the recipe is: create a throwaway process, restrict it, then swap in the untrusted command. In Go you can't run your own code between "create" and "swap", so Go sandboxes start <b>a second copy of themselves</b> to do the restricting.</p></div>
+
+<h2 id="process">What a process is</h2>
+<p>When you run <code>python script.py</code>, the OS creates a <b>process</b>. It has two halves:</p>
+<ul>
+  <li><b>Memory:</b> the program's code and its variables. This is what you think of as "the program".</li>
+  <li><b>Kernel-side settings:</b> its process ID (PID), which user it runs as, its working directory, its environment variables, its open files, and, central to this guide, <em>which parts of the system it can see</em> (namespaces), its resource budget (cgroup) and which system calls it may make (seccomp).</li>
+</ul>
+<div class="callout"><b class="t">An analogy for the rest of the guide</b>
+<p>A process is a person in a building. Memory is what they know and are working on. The kernel settings are their badge: which rooms open, how much budget they have. <code>exec</code> replaces the person's knowledge and job but <b>keeps the badge</b>. A sandbox locks the badge down first, then swaps in the untrusted program, which starts life with the locked badge and can't take it off.</p></div>
+
+<h2 id="syscalls">System calls: the only door</h2>
+<p>Your program runs in "user mode": the CPU won't let it touch the disk, the network card or another program's memory directly. To do anything outside its own memory it executes a <b>system call</b> ("syscall"), which hands control to the kernel along with a request: <em>open this file</em>, <em>connect to this address</em>, <em>start this program</em>. The kernel checks the request against the process's settings and either does it or returns an error. Linux has a few hundred syscalls; <code>open</code>, <code>read</code>, <code>write</code>, <code>connect</code>, <code>clone</code> and <code>execve</code> are the ones you'll meet constantly.</p>
+<p>You can watch them with <code>strace</code>, which prints every syscall a program makes:</p>
+<pre><code>$ strace -f -e trace=execve,openat cat /etc/hostname
+execve("/usr/bin/cat", ["cat", "/etc/hostname"], …) = 0     <span class="c"># start the cat program</span>
+openat(AT_FDCWD, "/etc/hostname", O_RDONLY) = 3             <span class="c"># open the file; the kernel returns 3</span>
+myhost</code></pre>
+<p>Python's <code>open()</code>, Go's <code>os.Open</code>, a shell's <code>cat</code>: all of them end in the same <code>openat</code> syscall. That's the key point for sandboxing: <b>every</b> access to files, network or processes passes through this one narrow interface, so restricting it restricts everything, regardless of language or tool.</p>
+
+<h2 id="fds">File descriptors: how processes talk</h2>
+<p>That <code>= 3</code> above is a <b>file descriptor</b>: a small number the kernel gives a process to refer to an open thing. "Things" include files, but also network connections and <b>pipes</b> (one-way channels between processes). Every process starts with three:</p>
+<div class="tw"><table>
+<tr><th>FD</th><th>Name</th><th>Python</th><th>Usually</th></tr>
+<tr><td>0</td><td>stdin</td><td><code>sys.stdin</code></td><td>Keyboard, or whatever is piped in</td></tr>
+<tr><td>1</td><td>stdout</td><td><code>sys.stdout</code></td><td>Terminal, or the next program in a pipe</td></tr>
+<tr><td>2</td><td>stderr</td><td><code>sys.stderr</code></td><td>Terminal (errors and logs)</td></tr>
+</table></div>
+<p>In <code>cat log.txt | grep error</code>, the shell creates a pipe, connects <code>cat</code>'s fd 1 to one end and <code>grep</code>'s fd 0 to the other. Neither program knows; they just read and write their standard streams. Two consequences you'll see later: an MCP server over stdio is exactly this, with JSON messages on stdin/stdout (<a href="02-mcp.html#transports">MCP page</a>); and file descriptors are inherited by child processes, so a sandbox must close the ones the untrusted program shouldn't have.</p>
+
+<h2 id="users">Users, root, and why "root" can be fake</h2>
+<p>Every process runs as a numeric user ID (UID). Files have owners and permission bits, and the kernel compares the two on every access. UID 0, <b>root</b>, bypasses most checks. Historically root was all-or-nothing; modern Linux splits its powers into about forty <b>capabilities</b> (<code>CAP_NET_ADMIN</code> to configure networking, <code>CAP_SYS_ADMIN</code> for mounting and much more, and so on) that can be granted or dropped individually.</p>
+<p>A <b>user namespace</b> adds a twist: a process can be UID 0 <em>inside</em> its namespace while the kernel maps it to your ordinary UID <em>outside</em>. Inside, it may do root-like things that only affect its own little world (mount filesystems there, change its own hostname). Outside, it's still just you. That's what lets you build a sandbox without <code>sudo</code>. The <a href="03-isolation.html#namespaces">isolation page</a> shows it in action.</p>
+
+<h2 id="verbs">Starting programs: fork, exec, wait</h2>
+<p>Unix creates processes in two steps that you can combine in different ways:</p>
+<ul>
+  <li><b><code>fork()</code></b> clones the current process. Afterwards there are two nearly identical processes running the same program at the same line; the only difference is that <code>fork</code> returns 0 in the copy (the "child") and the child's PID in the original (the "parent").</li>
+  <li><b><code>exec()</code></b> (properly <code>execve</code>) replaces the program running in the current process with another one. Same process, same PID, same kernel-side settings; brand-new code and memory.</li>
+  <li><b><code>wait()</code></b> lets a parent sleep until a child exits and collect its exit code.</li>
+</ul>
+<div class="tw"><table>
+<tr><th>You want to…</th><th>Python</th><th>Go</th><th>New process?</th><th>Your code continues?</th></tr>
+<tr><td>Run a command and wait</td><td><code>subprocess.run([...])</code></td><td><code>cmd.Run()</code></td><td>Yes</td><td>Yes, after it finishes</td></tr>
+<tr><td>Start it, wait later</td><td><code>subprocess.Popen(...)</code></td><td><code>cmd.Start()</code> + <code>cmd.Wait()</code></td><td>Yes</td><td>Yes, immediately</td></tr>
+<tr><td><b>Become</b> the command</td><td><code>os.execv(...)</code></td><td><code>syscall.Exec(...)</code></td><td><b>No</b>, same process</td><td><b>No</b>, never returns if it works</td></tr>
+<tr><td>Clone yourself</td><td><code>os.fork()</code></td><td><i>not available</i></td><td>Yes</td><td>Both copies continue</td></tr>
+</table></div>
+<p>Under the hood, <code>subprocess.run</code> and <code>cmd.Run()</code> are <b>fork + exec + wait</b>: clone yourself, have the clone exec the command, wait for it. In Go, <code>exec.Command("ls")</code> on its own runs nothing; it only describes a process until you call <code>Run()</code> or <code>Start()</code>.</p>
+<p class="cap">see the difference in Python</p>
+<pre><code><span class="c"># run: a NEW process runs echo; we wait; then we carry on</span>
+import subprocess
+subprocess.run(["echo", "hello from echo"])
+print("after")                  <span class="c"># prints: we are still here</span>
+
+<span class="c"># exec: THIS process turns into echo. There is no "after".</span>
+import os
+print("before", flush=True)     <span class="c"># flush, because exec discards unwritten buffers</span>
+os.execv("/bin/echo", ["echo", "hello from echo"])
+print("after")                  <span class="c"># never runs: the Python interpreter is gone</span></code></pre>
+
+<h2 id="stick">Restrictions belong to the process, and stick</h2>
+<p>Three properties make sandboxes possible:</p>
+<ol class="tight">
+  <li><b>Restrictions are kernel-side settings</b>, so they survive <code>exec</code>: the new program inherits them.</li>
+  <li><b>Children inherit them too</b>: everything the restricted program starts is restricted as well.</li>
+  <li><b>They're one-way.</b> A process can tighten its own limits but never loosen them. That's why the sandbox program (the "controller") doesn't restrict itself: it needs to keep working. It restricts a disposable process instead.</li>
+</ol>
+<p>The <code>unshare</code> command shows all three. It creates a process with new namespaces, then execs your command in it:</p>
+<pre><code>$ unshare --user --map-root-user --uts sh -c 'hostname box; hostname; id -u'
+box          <span class="c"># the hostname changed…</span>
+0            <span class="c"># …and we are "root", but only in this namespace</span>
+$ hostname
+myhost       <span class="c"># outside: untouched</span></code></pre>
+<div class="callout gotcha"><b class="t">"Operation not permitted"?</b>
+<p>Some distributions (recent Ubuntu, for example) block unprivileged user namespaces by default. In a VM you control, <code>sudo sysctl kernel.apparmor_restrict_unprivileged_userns=0</code> allows them; or run the command with <code>sudo</code> and drop <code>--user --map-root-user</code>.</p></div>
+
+<h2 id="c-way">How a sandbox starts a process: the C way</h2>
+<p>The gap between <code>fork</code> and <code>exec</code> is where a sandbox does its work. The child is still running the sandbox's own code, so it can restrict itself and then exec the untrusted command:</p>
+<ol class="steps">
+  <li><b>Fork.</b> The sandbox (PID 100) forks; the child is PID 101, a copy running the same code.</li>
+  <li><b>Parent waits.</b> PID 100 calls <code>waitpid(101)</code> and sleeps.</li>
+  <li><b>Child enters new namespaces</b> (a user namespace first, so it's allowed to do the rest without real root), builds a private filesystem view and joins a cgroup with memory and process limits.</li>
+  <li><b>Child applies the final filters</b>: Landlock rules, then a seccomp syscall filter last, because that filter would block the mount calls of the previous step.</li>
+  <li><b>Child execs the untrusted command.</b> The sandbox's code is gone from PID 101; the command runs with every restriction inherited.</li>
+  <li><b>Command exits</b>, and the parent's <code>waitpid</code> returns its exit code.</li>
+</ol>
+<p>Python has a hook for exactly that gap, <code>subprocess.run(..., preexec_fn=setup)</code>, and its documentation warns it's unsafe in programs that use threads. That warning is the whole story of the next section.</p>
+
+<h2 id="go-way">Why Go can't, and the re-exec trick</h2>
+<p>Every Go program runs on several OS threads (for the garbage collector, the scheduler, your goroutines). <code>fork()</code> copies only the thread that called it, so a forked Go child would have a half-copied runtime, for example waiting forever on a lock held by a thread that no longer exists. So Go has no <code>fork</code>. Its <code>os/exec</code> does fork and exec in one controlled step, with only a fixed list of options (<code>SysProcAttr</code>) in between. You can't add your own code there.</p>
+<p>The fix: make "the code in between" a <b>separate run of the same binary</b>. The sandbox starts <code>/proc/self/exe</code> (a link the kernel provides to the running program's own file) with a marker argument, and asks for the new namespaces at creation time. That second run is a brand-new process with a fresh Go runtime, already inside the namespaces. It sees the marker, does the setup, and execs the real command.</p>
+<p class="cap">jail.go: a complete toy. Three namespaces only, but the real structure.</p>
+<pre><code>package main
+
+import ("fmt"; "os"; "os/exec"; "syscall")
+
+func main() {
+    if len(os.Args) &gt; 1 &amp;&amp; os.Args[1] == "__init" {   <span class="c">// am I the second run?</span>
+        child(os.Args[2:])
+        return
+    }
+    parent(os.Args[1:])                                <span class="c">// no marker: first run</span>
+}
+
+func parent(args []string) {
+    fmt.Println("parent: pid", os.Getpid())
+    <span class="c">// describe a process: "run MYSELF again, with __init in front of the real command"</span>
+    cmd := exec.Command("/proc/self/exe", append([]string{"__init"}, args...)...)
+    cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+    cmd.SysProcAttr = &amp;syscall.SysProcAttr{
+        <span class="c">// "create it inside NEW user, hostname and PID namespaces"</span>
+        Cloneflags:  syscall.CLONE_NEWUSER | syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID,
+        UidMappings: []syscall.SysProcIDMap{{ContainerID: 0, HostID: os.Getuid(), Size: 1}},
+        GidMappings: []syscall.SysProcIDMap{{ContainerID: 0, HostID: os.Getgid(), Size: 1}},
+    }
+    if err := cmd.Run(); err != nil {                  <span class="c">// start it and WAIT</span>
+        fmt.Fprintln(os.Stderr, "run failed:", err)
+        os.Exit(1)
+    }
+}
+
+func child(args []string) {
+    fmt.Println("child: pid", os.Getpid())             <span class="c">// 1: first process in its PID namespace</span>
+    must(syscall.Sethostname([]byte("box")))           <span class="c">// "restrict" (real: mounts, Landlock, seccomp)</span>
+    path, err := exec.LookPath(args[0])
+    must(err)
+    must(syscall.Exec(path, args, []string{"PATH=/usr/bin:/bin"}))   <span class="c">// become the command</span>
+}
+
+func must(err error) {                                 <span class="c">// our helper, not a Go built-in</span>
+    if err != nil { fmt.Fprintln(os.Stderr, "fatal:", err); os.Exit(1) }
+}</code></pre>
+<pre><code>$ go mod init jailtoy &amp;&amp; go build -o jail .
+$ ./jail sh -c 'echo "sh: pid=$$ host=$(hostname)"'
+parent: pid 936
+child: pid 1
+sh: pid=1 host=box</code></pre>
+<p class="cap">who is running what, and when</p>
+<pre><code>terminal: ./jail sh -c '…'
+   │
+[PID 936]  our binary, <b>parent</b> path              prints "parent: pid 936"
+   │  cmd.Run(): kernel creates a NEW process in NEW namespaces and loads
+   │             /proc/self/exe (our binary, AGAIN) with args: __init sh -c …
+   ▼
+[PID 937, "1" inside]  our binary, <b>child</b> path     prints "child: pid 1"
+   │  Sethostname("box")                         restrict this process
+   │  syscall.Exec("/bin/sh", …)                 same process, program replaced
+   ▼
+[PID 937, "1" inside]  /bin/sh                   runs the command, exits
+   │
+parent's cmd.Run() returns with the exit code</code></pre>
+<p>The parent's memory is <em>not</em> copied to the child: it's a fresh process started from the same file. That's why the threads problem disappears.</p>
+
+<h3>Questions people usually have at this point</h3>
+<ul>
+  <li><b>So the command runs twice?</b> No. <em>Our program</em> runs twice (parent path, then child path). <em>Your command</em> runs once, at the end, when the child replaces itself with it.</li>
+  <li><b>Is <code>__init</code> special?</b> No, any marker works. But the child path must <b>fail closed</b> if someone runs it directly: in the toy, <code>./jail __init sh</code> outside namespaces fails at <code>Sethostname</code> and exits instead of running <code>sh</code> unrestricted. Real code adds an explicit check (for example that its PID is 1) or uses a marker users can't set by accident.</li>
+  <li><b>What does <code>must()</code> do?</b> It's a five-line helper: on error, exit. Go functions <em>return</em> errors and it's legal to ignore them; <code>must</code> makes that impossible. For a sandbox it's essential: a failed setup step must never be followed by running the command anyway.</li>
+  <li><b>How would the child get its configuration?</b> It starts with empty memory, so configuration has to be passed in: arguments, environment variables, or JSON over an extra pipe (<code>cmd.ExtraFiles</code>, which appears in the child as fd 3). Container runtimes like runc pass their config this way.</li>
+  <li><b>Why not pass the namespace flags straight to the real command?</b> You'd get namespaces, but nowhere to run the mount, Landlock and seccomp setup, which must happen inside the new process before the command starts.</li>
+</ul>
+
+<h2 id="build">What you'll build from this page</h2>
+<div class="spec">
+  <b>Exercise, before any component</b>
+  <ul class="tight">
+    <li>Run the <code>unshare</code> examples here and on the <a href="03-isolation.html">isolation page</a>.</li>
+    <li>Build the toy above in a Linux VM. Add <code>syscall.CLONE_NEWNET</code> and confirm that networking disappears inside.</li>
+    <li>Run <code>strace -f</code> on <code>python3 -c "print(open('/etc/hostname').read())"</code> and find the <code>openat</code>. Then on the toy, and find the <code>clone</code> and both <code>execve</code> calls.</li>
+  </ul>
+  <b>Feeds into</b>
+  <ul class="tight"><li>The <code>box</code> component on the <a href="03-isolation.html">isolation page</a>, which is this toy grown up.</li></ul>
+</div>
+
+<div class="check"><h2 id="check">Check yourself</h2>
+<details class="q"><summary>Why can the kernel enforce limits that a program can't get around?</summary><p>Because a program can't touch files, network or other processes without a system call, and every system call goes through the kernel, which checks it against the process's settings. There's no side door in user mode.</p></details>
+<details class="q"><summary>After <code>syscall.Exec</code> succeeds, what runs the next line of your Go code?</summary><p>Nothing. The process's code and memory were replaced by the new program. <code>Exec</code> only returns if it failed.</p></details>
+<details class="q"><summary>Why doesn't the sandbox program restrict itself instead of a child?</summary><p>Restrictions can't be undone. The controller needs to keep creating runs, reading results and cleaning up, so it restricts a disposable process instead.</p></details>
+<details class="q"><summary>A forked child inherits open file descriptors. Why does that matter for a sandbox?</summary><p>An inherited descriptor is an open door that bypasses the filesystem view: a file, socket or pipe the parent had open stays usable in the child. The sandbox must close (or mark close-on-exec) everything except stdin, stdout and stderr before exec.</p></details>
+</div>
+
+<nav class="nextprev"><a class="pv" href="index.html"><small>← Previous</small>Start here</a><a class="nx" href="02-mcp.html"><small>Next →</small>Tools over MCP</a></nav>
+<footer>Agent stack guide · a personal learning project, November 2026. · <a href="../../index.html">yannis radhima</a></footer>
+</main>
+<script>
+function toggleTheme(){var r=document.documentElement;var d=r.getAttribute('data-theme')?r.getAttribute('data-theme')==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'light':'dark');try{localStorage.setItem('theme',r.getAttribute('data-theme'))}catch(e){}}
+try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+document.addEventListener('click',function(e){var d=document.querySelector('.topbar details');if(d&&d.open&&!d.contains(e.target))d.open=false});
+</script>
+</body>
+</html>

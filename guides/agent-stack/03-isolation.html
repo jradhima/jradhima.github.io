@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isolation and Sandboxes</title>
+<meta name="description" content="Linux sandboxing explained with experiments: namespaces, pivot_root, cgroups v2, capabilities, seccomp, Landlock, and how containers compare with gVisor and microVMs.">
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--line:#e2ded5;--accent:#b4532a;--accent-soft:#f6e6dc;--ok:#2f6b45;--ok-soft:#e1efe5;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--bad-soft:#f6e0e0;--code-bg:#f4f2ed;--code-text:#2a2824;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:780px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .sp{flex:1}
+.topbar details{position:relative}
+.topbar summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:var(--surface)}
+.topbar summary::-webkit-details-marker{display:none}
+.topbar .menu{position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.topbar .menu a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.topbar .menu a:hover{background:var(--surface-2)}
+.topbar .menu a.cur{color:var(--accent);font-weight:600}
+.topbar .menu .n{display:inline-block;width:26px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.themebtn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+main{max-width:780px;margin:0 auto;padding:40px 20px 100px}
+.kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--serif);font-size:42px;line-height:1.12;margin:10px 0 12px;font-weight:600;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.2;margin:60px 0 6px;font-weight:600;scroll-margin-top:70px}
+h3{font-size:18px;margin:30px 0 6px;scroll-margin-top:70px}
+h4{font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:10px 0 14px}
+.lede{font-size:19px;color:var(--muted)}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0 18px}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+pre .c{color:var(--muted);font-style:italic}
+pre .k{color:var(--accent)}
+pre b{color:var(--accent);font-weight:600}
+.cap{font-size:12px;color:var(--muted);font-family:var(--mono);margin:16px 0 -8px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:14px 0 20px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+.callout b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.callout.why{background:var(--accent-soft);border-color:transparent}.callout.why b.t{color:var(--accent)}
+.callout.gotcha{background:var(--warn-soft);border-color:transparent}.callout.gotcha b.t{color:var(--warn)}
+.callout.ok{background:var(--ok-soft);border-color:transparent}.callout.ok b.t{color:var(--ok)}
+.callout.bad{background:var(--bad-soft);border-color:transparent}.callout.bad b.t{color:var(--bad)}
+.callout p:first-of-type{margin-top:0}.callout p:last-child,.callout ul:last-child,.callout ol:last-child{margin-bottom:0}
+.oneminute{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.oneminute b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}
+.oneminute p:last-child{margin-bottom:0}.oneminute p:first-of-type{margin-top:0}
+ol.steps{list-style:none;counter-reset:st;padding:0;margin:16px 0 20px}
+ol.steps>li{counter-increment:st;position:relative;padding:2px 0 12px 42px;border-left:2px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent}
+ol.steps>li::before{content:counter(st);position:absolute;left:-14px;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:600 13px/26px var(--sans);text-align:center}
+ol.steps pre{margin:8px 0 4px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0;font-size:13.5px}
+.flow .b{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:12.5px}
+.flow .b.hl{border-color:var(--accent);color:var(--accent)}
+.flow .ar{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 4px;color:var(--text);text-transform:none;letter-spacing:0;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+a.card{text-decoration:none;color:inherit;display:block}
+a.card:hover{border-color:var(--accent)}
+.spec{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 18px 10px;margin:18px 0}
+.spec>b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 2px}
+.spec ul{margin:6px 0 10px;padding-left:20px}
+ul.tight li,ol.tight li{margin:3px 0}
+.check{margin:28px 0 0}
+details.q{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+details.q summary{cursor:pointer;font-weight:600}
+details.q[open] summary{margin-bottom:6px}
+details.q p:last-child{margin-bottom:4px}
+.nextprev{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:70px;padding-top:24px;border-top:1px solid var(--line)}
+.nextprev a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-decoration:none;color:var(--text);background:var(--surface)}
+.nextprev a:hover{border-color:var(--accent)}
+.nextprev small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.nextprev .nx{text-align:right;grid-column:2}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:4px}
+.stack{margin:22px 0;display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:160px 1fr 120px;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14.5px;text-decoration:none;color:var(--text)}
+.layer:hover{border-color:var(--accent)}
+.layer .n{font-weight:600}.layer .d{color:var(--muted)}.layer .c{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+@media (max-width:680px){h1{font-size:32px}h2{font-size:24px}.grid2{grid-template-columns:1fr}.layer{grid-template-columns:1fr;gap:2px}.layer .c{text-align:left}.nextprev{grid-template-columns:1fr}.nextprev .nx{grid-column:1}.topbar .home span{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+<a class="home" href="index.html">◆ <span>Agent stack guide</span></a>
+<div class="sp"></div>
+<details><summary>Contents ▾</summary><div class="menu">
+<a href="index.html"><span class="n">·</span>Start here</a>
+<a href="01-processes.html"><span class="n">01</span>Processes &amp; syscalls</a>
+<a href="02-mcp.html"><span class="n">02</span>Tools over MCP</a>
+<a href="03-isolation.html" class=cur><span class="n">03</span>Isolation</a>
+<a href="04-network.html"><span class="n">04</span>Network &amp; egress</a>
+<a href="05-identity.html"><span class="n">05</span>Identity &amp; secrets</a>
+<a href="06-policy.html"><span class="n">06</span>Policy &amp; injection</a>
+<a href="07-tracing.html"><span class="n">07</span>Tracing</a>
+<a href="08-control-plane.html"><span class="n">08</span>Run control plane</a>
+<a href="09-harness.html"><span class="n">09</span>The harness</a>
+<a href="10-build-plan.html"><span class="n">10</span>Build plan</a>
+</div></details>
+<button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
+</div></div>
+<main>
+<div class="kicker">Part 3 · Component: box</div>
+<h1>Isolation: building a sandbox</h1>
+<p class="lede">How a process is shown a smaller world and given smaller budgets: namespaces, filesystems, cgroups, capabilities, seccomp and Landlock, the order they&#x27;re applied in, and when you need gVisor or a microVM instead.</p>
+<div class="oneminute"><b class="t">In one minute</b>
+<p>Linux has no "container" object. A container is an ordinary process that the kernel shows <b>a smaller world</b> (namespaces: its own files, process list, network, users), gives <b>smaller budgets</b> (cgroups: memory, CPU, number of processes) and allows <b>fewer actions</b> (capabilities, seccomp, Landlock). You'll assemble those pieces by hand, in a specific order, which is the best way to understand what Docker, gVisor and microVMs each actually give you.</p></div>
+
+<h2 id="goal">What a sandbox has to achieve</h2>
+<p>Run an untrusted command so that, whatever it does, it can only touch what you gave it:</p>
+<ul class="tight">
+  <li><b>Files:</b> one working directory read-write, a few system directories read-only, nothing else visible.</li>
+  <li><b>Processes:</b> it can't see or signal anything outside the sandbox.</li>
+  <li><b>Network:</b> none at all, or only a path to the <a href="04-network.html">egress gate</a>.</li>
+  <li><b>Resources:</b> a memory cap, a CPU share, a process count limit and a wall-clock timeout.</li>
+  <li><b>Kernel surface:</b> as few kernel features as possible, because every kernel feature is potential attack surface.</li>
+  <li><b>Cleanup:</b> when it ends, nothing is left running.</li>
+</ul>
+<p>Each mechanism below covers part of that list. None of them covers all of it, which is why you combine them.</p>
+
+<h2 id="namespaces">Namespaces: a smaller world</h2>
+<p>A namespace gives a process its own copy of one kind of global resource. There are several kinds, each requested with a <code>CLONE_NEW…</code> flag when the process is created (or with <code>unshare</code> afterwards). The fastest way to understand them is the <code>unshare</code> command, which creates namespaces and runs a command inside them. All of these outputs were produced on a real Linux machine.</p>
+
+<h3>User namespace: "root" that isn't</h3>
+<pre><code>$ id -u
+1000
+$ unshare --user --map-root-user sh -c 'id -u; cat /proc/self/uid_map'
+0
+         0       1000          1     <span class="c"># "uid 0 in here is uid 1000 outside, for 1 id"</span></code></pre>
+<p>Inside, the process has full root powers <em>over things that belong to its namespace</em>. Outside, any file it creates is owned by you and any access is checked as you. Creating a user namespace first is what makes all the others possible without <code>sudo</code>.</p>
+
+<h3>PID namespace: its own process list</h3>
+<pre><code>$ sudo unshare --pid --fork --mount-proc sh -c 'ps -eo pid,comm'
+    PID COMMAND
+      1 sh
+      2 ps</code></pre>
+<p>Two particularities. <code>--fork</code> is needed because a new PID namespace applies to the <em>next</em> process created, not the caller (the same quirk you saw on the <a href="01-processes.html#c-way">processes page</a>). And <code>--mount-proc</code> mounts a fresh <code>/proc</code>, because tools like <code>ps</code> read the process list from <code>/proc</code>; without it they'd still show the host's processes. A useful bonus: <b>when PID 1 of a namespace exits, the kernel kills every other process in it</b>, which gives you reliable cleanup for free.</p>
+
+<h3>Mount namespace: its own filesystem view</h3>
+<pre><code>$ unshare --user --map-root-user --mount sh -c 'mount -t tmpfs none /mnt; touch /mnt/inside; ls /mnt'
+inside
+$ ls /mnt
+                     <span class="c"># the host never saw that mount</span></code></pre>
+<p>The process gets a private copy of the list of mounted filesystems. Changes inside don't affect the host. On its own this doesn't hide anything (the copy starts identical to the host's); hiding comes from building a new root, below.</p>
+
+<h3>Network namespace: an empty network</h3>
+<pre><code>$ unshare --user --map-root-user --net sh -c 'ip -brief addr; curl -sS https://example.com'
+lo               DOWN
+curl: (6) Could not resolve host: example.com</code></pre>
+<p>A new network namespace has only a loopback interface, and it's down. No routes, no DNS, no internet, no LAN, no cloud metadata service. Making it able to reach exactly one thing (the gate) is covered on the <a href="04-network.html#enforce">network page</a>.</p>
+
+<h3>The full set</h3>
+<div class="tw"><table>
+<tr><th>Namespace</th><th>Isolates</th><th>Why the sandbox wants it</th></tr>
+<tr><td>user</td><td>UIDs and capabilities</td><td>Root powers inside without real root; required first for unprivileged sandboxes</td></tr>
+<tr><td>mount</td><td>Mounted filesystems</td><td>Build a private root filesystem</td></tr>
+<tr><td>pid</td><td>Process IDs</td><td>Can't see or signal host processes; PID 1 cleanup</td></tr>
+<tr><td>net</td><td>Network interfaces, routes, ports</td><td>No network by default</td></tr>
+<tr><td>uts</td><td>Hostname</td><td>Minor, but avoids leaking the host's name</td></tr>
+<tr><td>ipc</td><td>Shared memory, message queues</td><td>No cross-talk through old IPC mechanisms</td></tr>
+<tr><td>cgroup</td><td>The view of the cgroup tree</td><td>Can't see or reason about the host's resource groups</td></tr>
+</table></div>
+
+<h2 id="rootfs">Building a private filesystem</h2>
+<p>A mount namespace starts as a copy of the host's view. To make the host's files unreachable, the sandbox builds a new, minimal tree and makes it the root:</p>
+<ol class="steps">
+  <li><b>Make mounts private.</b> By default, mount changes can propagate between namespaces. Marking everything private (<code>mount --make-rprivate /</code>, or the equivalent syscall) guarantees nothing you do leaks back to the host.</li>
+  <li><b>Create an empty directory</b> to become the new root, for example a fresh temporary directory per run.</li>
+  <li><b>Bind-mount in what's needed.</b> A bind mount makes an existing directory appear at a second location. Mount <code>/usr</code>, <code>/lib</code> and <code>/bin</code> <b>read-only</b> so programs exist; the run's workspace at <code>/work</code> <b>read-write</b>; a small <code>tmpfs</code> (memory-backed filesystem) at <code>/tmp</code>; a minimal <code>/dev</code> with only <code>null</code>, <code>zero</code>, <code>random</code>, <code>urandom</code> and <code>tty</code>.</li>
+  <li><b>Switch root with <code>pivot_root</code></b>, then unmount the old root. Now <code>/home</code>, <code>~/.ssh</code> and the rest of the host simply don't exist: no path leads there.</li>
+  <li><b>Mount a fresh <code>/proc</code></b> for the new PID namespace.</li>
+</ol>
+<div class="callout gotcha"><b class="t">Why not just chroot?</b>
+<p><code>chroot</code> changes where a process's <code>/</code> points, but the old root is still mounted, and a process with root powers can climb back out with a known trick. <code>pivot_root</code> swaps the root of the mount namespace, and unmounting the old root removes the escape route entirely. Container runtimes use <code>pivot_root</code> for this reason.</p></div>
+<p>An alternative to the host's <code>/usr</code> is a separate root filesystem, for example an unpacked container image. That gives you a controlled, pinned set of tools per run (a Python image, a Go image) at the cost of managing images. A good <a href="10-build-plan.html#decisions">decision</a> to make consciously.</p>
+
+<h2 id="cgroups">cgroups: smaller budgets</h2>
+<p>Control groups ("cgroups") put processes in a group and let the kernel account for and limit what the group uses. In cgroups v2 (the current version), the interface is just a directory tree of files under <code>/sys/fs/cgroup</code>. You limit a group by writing to its files and move a process into it by writing its PID.</p>
+<p class="cap">step by step: stop a fork bomb (as root, in a VM)</p>
+<ol class="steps">
+  <li><b>Create a group</b> and limit it to 20 processes:
+<pre><code>mkdir /sys/fs/cgroup/demo
+echo 20 &gt; /sys/fs/cgroup/demo/pids.max</code></pre></li>
+  <li><b>Move your current shell into it.</b> Everything it starts from now on is in the group too.
+<pre><code>echo $$ &gt; /sys/fs/cgroup/demo/cgroup.procs</code></pre></li>
+  <li><b>Try to start 50 processes:</b>
+<pre><code>for i in $(seq 50); do sleep 60 &amp; done
+<span class="c"># after about 20: "fork: Resource temporarily unavailable"</span></code></pre></li>
+  <li><b>Ask the kernel what happened:</b>
+<pre><code>cat /sys/fs/cgroup/demo/pids.events
+max 31            <span class="c"># 31 process creations were refused</span></code></pre></li>
+  <li><b>Kill everything in the group at once:</b> <code>echo 1 &gt; /sys/fs/cgroup/demo/cgroup.kill</code>. One write, no orphans. This is how <code>box</code> will clean up.</li>
+</ol>
+<div class="tw"><table>
+<tr><th>File</th><th>Example</th><th>Effect</th></tr>
+<tr><td><code>memory.max</code></td><td><code>512M</code></td><td>Above this, the kernel reclaims memory and then kills a process in the group ("OOM kill")</td></tr>
+<tr><td><code>memory.events</code></td><td>read it</td><td>Counts, including <code>oom_kill</code>: how you tell "it crashed" from "we killed it"</td></tr>
+<tr><td><code>pids.max</code></td><td><code>128</code></td><td>Maximum number of processes and threads</td></tr>
+<tr><td><code>cpu.max</code></td><td><code>50000 100000</code></td><td>50 ms of CPU per 100 ms period: half a CPU</td></tr>
+<tr><td><code>cgroup.kill</code></td><td><code>1</code></td><td>Kill every process in the group</td></tr>
+</table></div>
+<p>Two practical notes. Controllers must be enabled for a group's children (<code>+memory +pids +cpu</code> in the parent's <code>cgroup.subtree_control</code>). And on systems run by systemd, an unprivileged user gets a delegated part of the tree, or you can run as root inside your VM while learning. In Go, <code>SysProcAttr</code> has <code>UseCgroupFD</code>/<code>CgroupFD</code> to start the child directly inside a group, so there's no moment where it runs unlimited.</p>
+
+<h2 id="caps">Capabilities and no_new_privs</h2>
+<p>Root's powers are split into about forty <b>capabilities</b>. Inside a user namespace the sandboxed process holds all of them (relative to that namespace). Before exec, the sandbox drops every capability the command doesn't need, which is usually all of them.</p>
+<p>The <b><code>no_new_privs</code></b> flag closes a different door: programs like <code>sudo</code> are "setuid", meaning they run with their owner's (root's) privileges whoever starts them. With <code>no_new_privs</code> set, exec can never gain privileges that way. It's one line, it's inherited, it can't be unset, and the kernel requires it before an unprivileged process may install a seccomp filter.</p>
+
+<h2 id="seccomp">seccomp: fewer system calls</h2>
+<p>Everything a process does goes through <a href="01-processes.html#syscalls">system calls</a>. seccomp lets a process install a small filter program that the kernel runs on <b>every syscall</b> it makes from then on. The filter looks at the syscall number (and optionally its arguments) and returns an action:</p>
+<div class="tw"><table>
+<tr><th>Action</th><th>Effect</th></tr>
+<tr><td>allow</td><td>The call proceeds normally</td></tr>
+<tr><td>errno</td><td>The call fails with an error, such as "operation not permitted". The program sees a normal failure.</td></tr>
+<tr><td>kill</td><td>The process is killed immediately</td></tr>
+<tr><td>log</td><td>Allowed, but recorded: useful while developing a filter</td></tr>
+<tr><td>user notification</td><td>The call is paused and a supervisor process decides. This is how some sandboxes implement "ask" at the syscall level.</td></tr>
+</table></div>
+<p>Which syscalls to refuse? Ones that ordinary programs never need and attackers love: <code>mount</code>, <code>umount2</code>, <code>pivot_root</code> (after setup), <code>ptrace</code> (inspecting other processes), <code>bpf</code>, <code>perf_event_open</code>, <code>keyctl</code>, <code>kexec_load</code>, <code>unshare</code> and <code>setns</code> (making or entering namespaces), <code>init_module</code> (loading kernel code). Docker's default profile refuses a few dozen of these.</p>
+<div class="callout why"><b class="t">Denylist or allowlist?</b>
+<p>A <b>denylist</b> refuses known-dangerous calls and allows everything else: easy to get working, but new kernel versions add syscalls you didn't list. An <b>allowlist</b> permits only what you've seen programs need: much stronger, but you'll spend time finding out which calls <code>npm</code> or <code>go build</code> make (<code>strace</code> tells you). Starting with a denylist and moving towards an allowlist is a classic learning path.</p></div>
+<div class="callout gotcha"><b class="t">The thread gotcha in Go</b>
+<p>A seccomp filter applies to the thread that installs it. A Go program has several threads, so the filter must be installed with the "synchronize all threads" flag, or some threads stay unfiltered. Check that the library you pick does this.</p></div>
+
+<h2 id="landlock">Landlock: unprivileged file rules</h2>
+<p>Landlock lets a process restrict <em>its own</em> file access, without any privileges. It creates a ruleset ("this process may read under <code>/usr</code>, read and write under <code>/work</code>, nothing else"), applies it to itself, and from then on the kernel enforces it for the process and all its children. Newer kernel versions extend it, for example to restrict which TCP ports may be connected to.</p>
+<p>If the mount setup already hides everything, why also Landlock? <b>Defence in depth.</b> Mount configuration is fiddly; a single wrong bind mount exposes a directory. Landlock is a second, independent check on the same thing. If one layer has a bug, the other still holds. Like seccomp, it applies per thread, so in Go you need a library that applies it to all threads.</p>
+
+<h2 id="order">Putting it together: the order matters</h2>
+<p>Here's the full sequence a sandbox runs, with the reason each step sits where it does. Steps 1–3 happen in the parent; the rest in the child, before it execs the command (see the <a href="01-processes.html#go-way">re-exec trick</a>).</p>
+<ol class="steps">
+  <li><b>Create the cgroup</b> and write its limits. <i>Before the child exists, so it never runs unlimited.</i></li>
+  <li><b>Start the child</b> with new user, mount, PID, net, UTS, IPC and cgroup namespaces, directly inside the cgroup.</li>
+  <li><b>Write the UID/GID maps</b> for the child's user namespace (Go does this for you from <code>SysProcAttr</code>).</li>
+  <li><b>Make mounts private.</b> <i>First thing in the child, before any mount, so nothing propagates.</i></li>
+  <li><b>Build the new root</b> with bind mounts: system dirs read-only, workspace read-write, tmpfs, minimal <code>/dev</code>.</li>
+  <li><b><code>pivot_root</code> and unmount the old root.</b> <i>The host filesystem is now unreachable.</i></li>
+  <li><b>Mount <code>/proc</code></b> and set the hostname.</li>
+  <li><b>Close every file descriptor</b> except 0, 1 and 2. <i>Inherited descriptors are open doors.</i></li>
+  <li><b>Drop capabilities.</b></li>
+  <li><b>Set <code>no_new_privs</code>.</b> <i>Required before the next two.</i></li>
+  <li><b>Apply Landlock.</b></li>
+  <li><b>Install seccomp, last.</b> <i>It would block <code>mount</code>, <code>pivot_root</code> and friends used above.</i></li>
+  <li><b>Exec the command</b> with a clean, explicit environment. <i>Never pass through the parent's environment: it may contain secrets.</i></li>
+  <li><b>Parent waits</b> with a timeout. On timeout or completion, it writes <code>1</code> to <code>cgroup.kill</code>, removes the cgroup, deletes the run's temporary root, and reports the result.</li>
+</ol>
+
+<h2 id="kernel">The shared-kernel problem, and stronger options</h2>
+<p>Everything above is enforced by <b>the same kernel the untrusted program is talking to</b>. The kernel is huge, and bugs in it occasionally let a process break out of every namespace and filter at once. For code you mostly trust (your own agent working on your own repos), namespaces are a reasonable boundary. For code you don't (other people's tasks, a multi-tenant cloud product), you want a smaller boundary between the program and the real kernel.</p>
+<h3>gVisor: a kernel in user space</h3>
+<p>gVisor (written in Go) intercepts the sandboxed program's syscalls and handles them in its own user-space implementation of Linux, the "Sentry". The program believes it's talking to Linux; the real kernel only sees the Sentry, which itself runs with a tiny syscall allowlist. Cost: syscall-heavy workloads run slower, and a few Linux features behave differently. You use it as <code>runsc</code>, a drop-in container runtime.</p>
+<h3>MicroVMs: a real, tiny virtual machine</h3>
+<p>Firecracker (written in Rust, built for serverless platforms) uses the CPU's hardware virtualization (KVM on Linux) to run a separate guest kernel with a deliberately minimal set of virtual devices: a network card, a disk, a serial console, and a socket channel to the host ("vsock"). It boots to user space in roughly an eighth of a second and costs a few megabytes of memory overhead. An escape now requires breaking the hypervisor, a much smaller and better-defended surface than the full Linux syscall interface. Firecracker even runs itself inside namespaces, cgroups and seccomp (its "jailer"), so a hypervisor bug still lands in a sandbox.</p>
+<div class="tw"><table>
+<tr><th></th><th>Namespaces + filters</th><th>gVisor</th><th>MicroVM</th></tr>
+<tr><td>Boundary</td><td>Host kernel</td><td>User-space kernel, then host kernel</td><td>Hypervisor (hardware virtualization)</td></tr>
+<tr><td>Startup</td><td>Milliseconds</td><td>Around 100 ms</td><td>Around 100–200 ms; faster from a snapshot</td></tr>
+<tr><td>Overhead</td><td>Nearly none</td><td>Noticeable for syscall-heavy work</td><td>Small CPU cost, some memory per VM</td></tr>
+<tr><td>Compatibility</td><td>Full Linux</td><td>Most of Linux</td><td>Full Linux (its own kernel)</td></tr>
+<tr><td>Needs</td><td>Linux</td><td>Linux</td><td>Linux with <code>/dev/kvm</code> (often missing inside VMs)</td></tr>
+<tr><td>Use for</td><td>Code you mostly trust</td><td>Untrusted, if overhead is acceptable</td><td>Untrusted, multi-tenant</td></tr>
+</table></div>
+<p>Two related ideas you'll see mentioned: <b>Kata Containers</b> runs ordinary container images inside microVMs; <b>WebAssembly</b> runtimes run code compiled to Wasm with no access to anything unless explicitly granted. Wasm is great for tools you write yourself, but it can't run an arbitrary <code>npm install</code>, so it doesn't replace the options above for agents.</p>
+<div class="callout"><b class="t">And on macOS?</b>
+<p>None of the above exists on macOS. Its equivalent is Seatbelt: a process can be started under a policy profile (via <code>sandbox-exec</code>) that the kernel enforces for files, network and more. Several agent tools use it on Macs. For this project, develop on Linux and treat Seatbelt as one comparison blog post.</p></div>
+
+<h2 id="tests">Testing a sandbox: try to escape it</h2>
+<p>A sandbox is only as good as its tests, and its tests are attacks. Write them first and watch them go from failing to passing:</p>
+<div class="tw"><table>
+<tr><th>Attempt</th><th>Expected result</th><th>Layer responsible</th></tr>
+<tr><td><code>cat ~/.ssh/id_ed25519</code>, <code>ls /home</code></td><td>No such file</td><td>Mount namespace + pivot_root, Landlock</td></tr>
+<tr><td><code>touch /usr/bin/x</code>, write outside <code>/work</code></td><td>Read-only filesystem / permission denied</td><td>Read-only bind mounts, Landlock</td></tr>
+<tr><td><code>ps aux</code>, <code>kill -9 1234</code></td><td>Only sandbox processes visible</td><td>PID namespace</td></tr>
+<tr><td>Fork bomb</td><td>Stops at <code>pids.max</code>; host unaffected</td><td>cgroup</td></tr>
+<tr><td>Allocate 2 GB</td><td>OOM kill; reported as such</td><td>cgroup</td></tr>
+<tr><td><code>sleep 999</code></td><td>Killed at the timeout; no leftovers</td><td>Parent + <code>cgroup.kill</code></td></tr>
+<tr><td><code>curl</code>, DNS lookup</td><td>Fails</td><td>Network namespace</td></tr>
+<tr><td><code>unshare</code>, <code>mount</code>, <code>ptrace</code></td><td>Operation not permitted</td><td>seccomp, dropped capabilities</td></tr>
+<tr><td><code>env</code></td><td>Only the variables you passed</td><td>Clean environment at exec</td></tr>
+<tr><td><code>ls -l /proc/self/fd</code></td><td>Only 0, 1, 2</td><td>Closing inherited descriptors</td></tr>
+</table></div>
+
+<h2 id="build">What you'll build: box</h2>
+<div class="spec">
+  <b>Interface</b>
+<pre><code>box run --rw ./work:/work --ro /usr --ro /lib --net none \
+        --mem 512M --pids 128 --cpu 0.5 --timeout 60s --json -- go test ./...
+
+{"exit_code":1,"duration_ms":4210,"killed":false,"kill_reason":"",
+ "oom_killed":false,"peak_memory_bytes":187236352}</code></pre>
+  <ul class="tight"><li>Also a Go package, <code>box.Run(ctx, Spec) (Result, error)</code>; the CLI is a thin wrapper, so <code>mcpbox</code> imports the package.</li></ul>
+  <b>Stages</b>
+  <ul class="tight">
+    <li>v0: namespaces, private root, cgroups, timeout, cleanup.</li>
+    <li>v1: capabilities, <code>no_new_privs</code>, Landlock, seccomp.</li>
+    <li>v2 (later): the same <code>Spec</code> run by gVisor's <code>runsc</code>, then a Firecracker microVM. Measure and compare.</li>
+  </ul>
+  <b>Done means</b>
+  <ul class="tight"><li>The escape table above is an automated test suite, and it passes.</li></ul>
+</div>
+
+<div class="check"><h2 id="check">Check yourself</h2>
+<details class="q"><summary>You set up a mount namespace but skip <code>pivot_root</code>. Can the sandboxed program read <code>~/.ssh</code>?</summary><p>Yes. A new mount namespace starts as a copy of the host's mounts, so everything is still visible. Hiding comes from building a new root and switching to it.</p></details>
+<details class="q"><summary>Why is seccomp installed last?</summary><p>Because the filter typically blocks <code>mount</code>, <code>pivot_root</code> and other calls that the setup steps before it need. Install it earlier and your own setup fails.</p></details>
+<details class="q"><summary>Your process gets killed. How does <code>box</code> tell "out of memory" from "crashed"?</summary><p>By reading the cgroup's <code>memory.events</code> file: if its <code>oom_kill</code> counter went up, the kernel killed it for exceeding <code>memory.max</code>.</p></details>
+<details class="q"><summary>When would you choose a microVM over namespaces?</summary><p>When the code is genuinely untrusted (other people's tasks, a multi-tenant service), because namespaces share the host kernel and one kernel bug can break all of them. A microVM puts a hypervisor boundary in between.</p></details>
+</div>
+
+<nav class="nextprev"><a class="pv" href="02-mcp.html"><small>← Previous</small>Tools over MCP</a><a class="nx" href="04-network.html"><small>Next →</small>Network &amp; egress</a></nav>
+<footer>Agent stack guide · a personal learning project, November 2026. · <a href="../../index.html">yannis radhima</a></footer>
+</main>
+<script>
+function toggleTheme(){var r=document.documentElement;var d=r.getAttribute('data-theme')?r.getAttribute('data-theme')==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'light':'dark');try{localStorage.setItem('theme',r.getAttribute('data-theme'))}catch(e){}}
+try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+document.addEventListener('click',function(e){var d=document.querySelector('.topbar details');if(d&&d.open&&!d.contains(e.target))d.open=false});
+</script>
+</body>
+</html>

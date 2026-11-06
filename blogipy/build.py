@@ -111,6 +111,11 @@ def build():
         entries = [(canonical_for(), latest)]
         entries += [(canonical_for(p["slug"]), d) for p, d in zip(posts, post_dates)]
         entries += [(canonical_for(p["slug"]), None) for p in pages]
+        for root, _dirs, files in sorted(os.walk("guides")):
+            for name in sorted(files):
+                if name.endswith(".html"):
+                    rel = os.path.relpath(os.path.join(root, name)).replace(os.sep, "/")
+                    entries.append((f"{base_url}/{rel}", None))
 
         lines = [
             '<?xml version="1.0" encoding="UTF-8"?>',
@@ -170,6 +175,10 @@ def build():
     if os.path.isdir(apps_dir):
         output_apps = os.path.join("output", "apps")
         shutil.copytree(apps_dir, output_apps)
+
+    # Copy guides (self-contained multi-page HTML guides)
+    if os.path.isdir("guides"):
+        shutil.copytree("guides", os.path.join("output", "guides"))
 
     # Render index
     post_list_html = ''

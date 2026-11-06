@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run Control Plane</title>
+<meta name="description" content="Control plane design for agent runs: lifecycle state machine, Server-Sent Events, budgets, reconciliation and cleanup, cold starts with overlayfs and snapshots.">
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--line:#e2ded5;--accent:#b4532a;--accent-soft:#f6e6dc;--ok:#2f6b45;--ok-soft:#e1efe5;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--bad-soft:#f6e0e0;--code-bg:#f4f2ed;--code-text:#2a2824;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:780px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .sp{flex:1}
+.topbar details{position:relative}
+.topbar summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:var(--surface)}
+.topbar summary::-webkit-details-marker{display:none}
+.topbar .menu{position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.topbar .menu a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.topbar .menu a:hover{background:var(--surface-2)}
+.topbar .menu a.cur{color:var(--accent);font-weight:600}
+.topbar .menu .n{display:inline-block;width:26px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.themebtn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+main{max-width:780px;margin:0 auto;padding:40px 20px 100px}
+.kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--serif);font-size:42px;line-height:1.12;margin:10px 0 12px;font-weight:600;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.2;margin:60px 0 6px;font-weight:600;scroll-margin-top:70px}
+h3{font-size:18px;margin:30px 0 6px;scroll-margin-top:70px}
+h4{font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:10px 0 14px}
+.lede{font-size:19px;color:var(--muted)}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0 18px}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+pre .c{color:var(--muted);font-style:italic}
+pre .k{color:var(--accent)}
+pre b{color:var(--accent);font-weight:600}
+.cap{font-size:12px;color:var(--muted);font-family:var(--mono);margin:16px 0 -8px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:14px 0 20px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+.callout b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.callout.why{background:var(--accent-soft);border-color:transparent}.callout.why b.t{color:var(--accent)}
+.callout.gotcha{background:var(--warn-soft);border-color:transparent}.callout.gotcha b.t{color:var(--warn)}
+.callout.ok{background:var(--ok-soft);border-color:transparent}.callout.ok b.t{color:var(--ok)}
+.callout.bad{background:var(--bad-soft);border-color:transparent}.callout.bad b.t{color:var(--bad)}
+.callout p:first-of-type{margin-top:0}.callout p:last-child,.callout ul:last-child,.callout ol:last-child{margin-bottom:0}
+.oneminute{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.oneminute b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}
+.oneminute p:last-child{margin-bottom:0}.oneminute p:first-of-type{margin-top:0}
+ol.steps{list-style:none;counter-reset:st;padding:0;margin:16px 0 20px}
+ol.steps>li{counter-increment:st;position:relative;padding:2px 0 12px 42px;border-left:2px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent}
+ol.steps>li::before{content:counter(st);position:absolute;left:-14px;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:600 13px/26px var(--sans);text-align:center}
+ol.steps pre{margin:8px 0 4px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0;font-size:13.5px}
+.flow .b{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:12.5px}
+.flow .b.hl{border-color:var(--accent);color:var(--accent)}
+.flow .ar{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 4px;color:var(--text);text-transform:none;letter-spacing:0;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+a.card{text-decoration:none;color:inherit;display:block}
+a.card:hover{border-color:var(--accent)}
+.spec{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 18px 10px;margin:18px 0}
+.spec>b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 2px}
+.spec ul{margin:6px 0 10px;padding-left:20px}
+ul.tight li,ol.tight li{margin:3px 0}
+.check{margin:28px 0 0}
+details.q{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+details.q summary{cursor:pointer;font-weight:600}
+details.q[open] summary{margin-bottom:6px}
+details.q p:last-child{margin-bottom:4px}
+.nextprev{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:70px;padding-top:24px;border-top:1px solid var(--line)}
+.nextprev a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-decoration:none;color:var(--text);background:var(--surface)}
+.nextprev a:hover{border-color:var(--accent)}
+.nextprev small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.nextprev .nx{text-align:right;grid-column:2}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:4px}
+.stack{margin:22px 0;display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:160px 1fr 120px;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14.5px;text-decoration:none;color:var(--text)}
+.layer:hover{border-color:var(--accent)}
+.layer .n{font-weight:600}.layer .d{color:var(--muted)}.layer .c{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+@media (max-width:680px){h1{font-size:32px}h2{font-size:24px}.grid2{grid-template-columns:1fr}.layer{grid-template-columns:1fr;gap:2px}.layer .c{text-align:left}.nextprev{grid-template-columns:1fr}.nextprev .nx{grid-column:1}.topbar .home span{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+<a class="home" href="index.html">◆ <span>Agent stack guide</span></a>
+<div class="sp"></div>
+<details><summary>Contents ▾</summary><div class="menu">
+<a href="index.html"><span class="n">·</span>Start here</a>
+<a href="01-processes.html"><span class="n">01</span>Processes &amp; syscalls</a>
+<a href="02-mcp.html"><span class="n">02</span>Tools over MCP</a>
+<a href="03-isolation.html"><span class="n">03</span>Isolation</a>
+<a href="04-network.html"><span class="n">04</span>Network &amp; egress</a>
+<a href="05-identity.html"><span class="n">05</span>Identity &amp; secrets</a>
+<a href="06-policy.html"><span class="n">06</span>Policy &amp; injection</a>
+<a href="07-tracing.html"><span class="n">07</span>Tracing</a>
+<a href="08-control-plane.html" class=cur><span class="n">08</span>Run control plane</a>
+<a href="09-harness.html"><span class="n">09</span>The harness</a>
+<a href="10-build-plan.html"><span class="n">10</span>Build plan</a>
+</div></details>
+<button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
+</div></div>
+<main>
+<div class="kicker">Part 8 · Component: runs</div>
+<h1>The run control plane</h1>
+<p class="lede">The layer behind &quot;spawn an agent in the cloud&quot;: accepting tasks, preparing environments, streaming progress, enforcing budgets, and cleaning up no matter what fails.</p>
+<div class="oneminute"><b class="t">In one minute</b>
+<p>"Spawn an agent in the cloud" hides a lot of work: accept a task, prepare a workspace, create the sandbox, give it the right network profile and credentials, start the harness, stream progress to whoever's watching, enforce time and cost budgets, collect the result, and clean everything up, even when something crashes halfway. That's a <b>control plane</b>: it doesn't do the work, it manages the things that do. Its core is a state machine per run and one rule: <b>every exit path cleans up</b>.</p></div>
+
+<h2 id="planes">Control plane vs data plane</h2>
+<p>Air traffic control doesn't fly planes; it decides which plane goes where and when, keeps track of all of them, and reacts when one has a problem. The planes are the data plane. In this stack, the <b>data plane</b> is everything that executes a run (the harness, <code>mcpbox</code>, <code>box</code>, the gate). The <b>control plane</b>, <code>runs</code>, creates those pieces for each run, wires them together, watches them, and tears them down.</p>
+<p>The split matters because the two have different jobs and different failure modes. The data plane runs untrusted work and may crash or be killed at any time. The control plane is trusted, keeps the records, and must survive its own restarts without losing track of anything.</p>
+
+<h2 id="run">What a run is made of</h2>
+<p>A run is a database record plus a set of resources that exist only while it's alive:</p>
+<div class="tw"><table>
+<tr><th>Resource</th><th>Created by</th><th>Cleanup</th></tr>
+<tr><td>Workspace directory (repo checkout)</td><td>Control plane, before start</td><td>Delete, after collecting outputs</td></tr>
+<tr><td>cgroup and sandbox processes</td><td><code>box</code></td><td><code>cgroup.kill</code>, remove the cgroup</td></tr>
+<tr><td>Gate profile and per-run socket</td><td>Control plane tells the gate</td><td>Remove the profile, delete the socket</td></tr>
+<tr><td>Credentials</td><td>Gate mints them</td><td>Revoke</td></tr>
+<tr><td>Harness process</td><td>Control plane</td><td>Cancel, then kill if it doesn't stop</td></tr>
+<tr><td>Trace file, event log</td><td>Harness and control plane</td><td><b>Keep</b>: they're the record of what happened</td></tr>
+</table></div>
+
+<h2 id="states">The state machine</h2>
+<pre><code>            ┌──────────── cancel ─────────────┐
+            │                                  ▼
+queued ─▶ preparing ─▶ running ⇄ waiting_for_approval
+                         │
+                         ├─▶ succeeded
+                         ├─▶ failed       (error, crash, budget exceeded)
+                         ├─▶ timed_out
+                         └─▶ cancelled
+                                  │
+             every terminal state ┴─▶ cleanup() runs, exactly once in effect</code></pre>
+<p>Writing it down as an explicit state machine (a column in the database plus a function that allows only legal transitions) prevents a whole class of bugs: a run that's "succeeded" and "running" at once, a cancel that arrives during preparation and is lost, cleanup that runs twice and deletes the wrong thing.</p>
+
+<h2 id="lifecycle">A run's life, step by step</h2>
+<ol class="steps">
+  <li><b>A client submits a task.</b>
+<pre><code>POST /runs
+{"task":"fix the failing test in parser", "repo":"me/parser", "profile":"go-dev",
+ "budget":{"seconds":900, "usd":0.50, "steps":60}}
+→ 201 {"id":"run_42", "status":"queued"}</code></pre></li>
+  <li><b>A worker picks it up</b> when a slot is free (see <a href="#concurrency">concurrency</a>) and moves it to <code>preparing</code>.</li>
+  <li><b>Preparation:</b> create the workspace (clone or restore from a snapshot), tell the gate to create the run's profile and socket and mint credentials, and choose the sandbox limits from the profile.</li>
+  <li><b>Start:</b> launch the harness for this run, configured to call <code>mcpbox</code>, which runs tools through <code>box</code> with this run's limits and gate socket. State becomes <code>running</code>.</li>
+  <li><b>While running:</b> the harness sends events (model output, tool calls, policy decisions) to the control plane, which stores them and streams them to watchers. It also sends heartbeats and usage so far.</li>
+  <li><b>A policy "ask" pauses it:</b> state <code>waiting_for_approval</code>, an approval event goes out, and the run resumes when <code>POST /runs/run_42/approve</code> arrives (or is denied when the approval times out).</li>
+  <li><b>The harness finishes:</b> the control plane records the outcome and any outputs (a branch name, a PR link, a report).</li>
+  <li><b>Cleanup:</b> kill whatever is left in the cgroup, revoke credentials, remove the gate profile, delete the workspace, keep the trace and events. The run reaches its terminal state.</li>
+</ol>
+<p class="cap">the rest of the API</p>
+<pre><code>GET    /runs/run_42             status, timestamps, usage so far, exit reason
+GET    /runs/run_42/events      live event stream (Server-Sent Events)
+POST   /runs/run_42/approve     {"call_id":"call_9", "decision":"allow", "scope":"once"}
+DELETE /runs/run_42             cancel</code></pre>
+
+<h2 id="events">Streaming progress with Server-Sent Events</h2>
+<p>A watcher (a terminal UI, a web page, a phone notification service) wants to see the run as it happens. <b>Server-Sent Events</b> (SSE) is the simplest way: the client makes one ordinary HTTP request, and the server keeps the response open and writes events into it as plain text.</p>
+<pre><code>GET /runs/run_42/events
+Accept: text/event-stream
+
+id: 17
+event: tool_call
+data: {"call_id":"call_7","tool":"run_command","args":{"command":"go test ./..."}}
+
+id: 18
+event: tool_result
+data: {"call_id":"call_7","exit_code":1,"duration_ms":4210}
+
+id: 19
+event: approval_needed
+data: {"call_id":"call_9","tool":"git_push","args":{"branch":"agent/fix-parser"},"rule":"push-agent-branches-only"}
+</code></pre>
+<p>Each event is a few <code>field: value</code> lines followed by a blank line. Two properties make SSE a good fit:</p>
+<ol class="steps">
+  <li><b>Resumable by design.</b> Every event has an <code>id</code>. If the connection drops (a phone switching networks), the client reconnects and sends <code>Last-Event-ID: 18</code>.</li>
+  <li><b>The server replays from there.</b> Because events are stored in the database with increasing IDs, the server sends everything after 18 and then continues live. The watcher misses nothing.</li>
+</ol>
+<p>Why not WebSockets? Progress only flows one way, server to client; SSE is plain HTTP that works through proxies, and actions in the other direction (approve, cancel) are ordinary POST requests. MCP's Streamable HTTP transport uses SSE for the same reasons (<a href="02-mcp.html#transports">MCP page</a>).</p>
+
+<h2 id="budgets">Budgets: who enforces what</h2>
+<p>A budget is only real if something enforces it, and different limits are best enforced at different layers:</p>
+<div class="tw"><table>
+<tr><th>Budget</th><th>Enforced by</th><th>How</th></tr>
+<tr><td>Wall-clock time for the run</td><td>Control plane</td><td>A timer per run; on expiry, cancel (below), final state <code>timed_out</code></td></tr>
+<tr><td>Cost and tokens</td><td>Harness, checked by control plane</td><td>The harness adds up usage after every model call and refuses the next call when over budget; the control plane cross-checks reported usage</td></tr>
+<tr><td>Steps</td><td>Harness</td><td>Stop after N loop iterations</td></tr>
+<tr><td>Time per tool call</td><td>mcpbox / box</td><td>Timeout on each sandboxed command</td></tr>
+<tr><td>Memory, CPU, processes</td><td>box (kernel)</td><td>cgroup limits</td></tr>
+</table></div>
+<p>The pattern: the closest layer enforces precisely, and an outer layer enforces a backstop. If the harness has a bug and keeps calling the model, the wall-clock timer still ends the run.</p>
+
+<h2 id="cancel">Cancelling a run</h2>
+<ol class="steps">
+  <li><b><code>DELETE /runs/run_42</code></b> marks the run <code>cancelling</code> in the database first, so the intent survives a crash.</li>
+  <li><b>The control plane asks the harness to stop</b>: in Go, cancelling the run's <code>context.Context</code>. A well-behaved harness stops after the current step and reports.</li>
+  <li><b>A grace period</b> (say 10 seconds) gives it time to finish cleanly.</li>
+  <li><b>After the grace period, force:</b> kill the harness process, and write <code>1</code> to the run's <code>cgroup.kill</code> so every sandboxed process dies at once.</li>
+  <li><b>Normal cleanup runs</b> (revoke, remove profile, delete workspace), and the state becomes <code>cancelled</code>.</li>
+</ol>
+
+<h2 id="cleanup">Cleanup when things fail: reconciliation</h2>
+<p>The naive approach, "clean up at the end of the run function", fails exactly when it matters: if the control plane itself crashes or is killed, the end of the function never runs. You're left with orphans: sandboxes still running, tokens still valid, gate profiles still open.</p>
+<p>The robust pattern, borrowed from Kubernetes controllers, is <b>reconciliation</b>: periodically compare what <em>should</em> exist (according to the database) with what <em>does</em> exist (on the machine), and fix the difference.</p>
+<ol class="steps">
+  <li><b>The control plane is killed with <code>kill -9</code></b> while three runs are active. No cleanup code runs.</li>
+  <li><b>It restarts</b> and, before accepting new work, runs a reconcile pass.</li>
+  <li><b>It lists actual resources:</b> cgroups under <code>/sys/fs/cgroup/box/</code>, workspace directories, gate profiles, unexpired tokens.</li>
+  <li><b>It compares them with the database:</b> those three runs are marked <code>running</code>, but their harness processes are gone and no heartbeat has arrived for a while.</li>
+  <li><b>It marks them <code>failed</code></b> (reason: "control plane restarted") and runs their cleanup.</li>
+  <li><b>It also removes anything with no matching run at all</b>, for example a cgroup left by a run whose record was never written.</li>
+  <li><b>The same pass runs every minute</b> while the control plane is up, catching anything that leaks in normal operation.</li>
+</ol>
+<div class="callout why"><b class="t">Two properties that make this work</b>
+<ul class="tight">
+<li><b>Idempotent cleanup:</b> every cleanup step can safely run twice. Deleting a directory that's already gone, or revoking a token that's already revoked, is a success, not an error.</li>
+<li><b>Heartbeats:</b> the harness reports "still alive" every few seconds. A run with no heartbeat for, say, a minute is presumed dead. Without heartbeats you can't tell a slow run from a dead one.</li>
+</ul></div>
+
+<h2 id="concurrency">Running many at once</h2>
+<ul>
+  <li><b>A queue:</b> new runs are rows with status <code>queued</code>. A worker claims the oldest one inside a database transaction, so two workers can never claim the same run.</li>
+  <li><b>A bounded worker pool:</b> at most N runs at once, chosen to fit the machine's memory and CPU (the sum of the runs' cgroup limits is a good guide).</li>
+  <li><b>Backpressure:</b> when the queue is too long, new submissions are refused (HTTP 429) rather than accepted and left waiting for hours.</li>
+  <li><b>No shared mutable state between runs:</b> each has its own workspace, cgroup, socket and credentials. Runs don't coordinate; the control plane does.</li>
+</ul>
+
+<h2 id="coldstart">Cold starts: why real platforms snapshot</h2>
+<p>Cloning a repo, installing dependencies and warming caches can take minutes, every run. Platforms avoid it by preparing an environment once and starting each run from a copy.</p>
+<h3>Layers with overlayfs</h3>
+<p>overlayfs combines read-only directories ("lower layers") with one writable directory ("upper") into a single merged view. Reads fall through to the layers below; writes go to the upper layer only. It's how container images work.</p>
+<ol class="steps">
+  <li><b>Once:</b> build a base layer (toolchain) and a deps layer (the repo with dependencies installed), both read-only.</li>
+  <li><b>Per run:</b> create an empty upper directory and mount the merged view:
+<pre><code>mount -t overlay overlay \
+  -o lowerdir=/layers/parser-deps:/layers/go-base,upperdir=/runs/42/upper,workdir=/runs/42/work \
+  /runs/42/merged</code></pre>
+  (The leftmost lower layer is on top: deps over base.)</li>
+  <li><b>The sandbox uses <code>/runs/42/merged</code></b> as its workspace. Starting takes milliseconds, because nothing is copied.</li>
+  <li><b>Every file the run changes</b> lands in <code>/runs/42/upper</code>. That directory is the run's diff: useful for producing outputs.</li>
+  <li><b>Cleanup</b> unmounts and deletes the upper directory. The shared layers are untouched for the next run.</li>
+</ol>
+<h3>MicroVM snapshots</h3>
+<p>With microVMs (<a href="03-isolation.html#kernel">isolation page</a>) you can go further: boot a VM, warm it up, then save its entire memory and device state to disk. Restoring that snapshot gives a running VM in a fraction of the boot time, with processes already started. One caveat worth knowing: every VM restored from the same snapshot starts with the same memory, including the state of random number generators and any IDs generated before the snapshot, so they must be refreshed after restore. Firecracker's documentation discusses this.</p>
+
+<h2 id="storage">Storage: keep it boring</h2>
+<p>For one machine, SQLite is enough: a <code>runs</code> table (ID, status, timestamps, budget, usage, outcome), an <code>events</code> table (run ID, increasing event ID, type, JSON data) and an <code>approvals</code> table. It's a file, it's transactional, and it ships inside your binary. Move to something bigger only when a second machine forces you to.</p>
+
+<h2 id="build">What you'll build: runs</h2>
+<div class="spec">
+  <ul class="tight">
+    <li>One binary: HTTP API, SQLite store, worker pool, reconcile loop.</li>
+    <li>The state machine as code, with a test for every legal and illegal transition.</li>
+    <li>SSE events with replay from <code>Last-Event-ID</code>; approvals; cancellation with a grace period.</li>
+    <li>Budgets: wall clock here; cost and steps reported by the harness and cross-checked.</li>
+    <li>Later: overlayfs layers for fast starts.</li>
+  </ul>
+  <b>Done means</b>
+  <ul class="tight">
+    <li>20 runs in parallel; a third cancelled mid-way, a third timing out. Afterwards: zero leftover processes, cgroups, gate profiles or valid tokens.</li>
+    <li>Kill the control plane with <code>kill -9</code> during that test, restart it, and the same is true after one reconcile pass.</li>
+  </ul>
+</div>
+
+<div class="check"><h2 id="check">Check yourself</h2>
+<details class="q"><summary>Why isn't "clean up at the end of the run function" enough?</summary><p>Because the function never reaches its end if the control plane crashes or is killed. Cleanup has to also happen from a reconcile pass that compares the database with what actually exists.</p></details>
+<details class="q"><summary>A watcher's connection drops for 30 seconds. How does it avoid missing events?</summary><p>It reconnects with <code>Last-Event-ID</code> set to the last event it received, and the server replays stored events after that ID before continuing live.</p></details>
+<details class="q"><summary>Why does the control plane mark a run <code>cancelling</code> before doing anything else?</summary><p>So the intent survives a crash. If the control plane dies mid-cancel, the reconcile pass sees <code>cancelling</code> and finishes the job.</p></details>
+<details class="q"><summary>What does overlayfs's upper directory contain after a run?</summary><p>Exactly the files the run created or changed: the run's diff on top of the shared, read-only layers.</p></details>
+</div>
+
+<nav class="nextprev"><a class="pv" href="07-tracing.html"><small>← Previous</small>Tracing</a><a class="nx" href="09-harness.html"><small>Next →</small>The harness</a></nav>
+<footer>Agent stack guide · a personal learning project, November 2026. · <a href="../../index.html">yannis radhima</a></footer>
+</main>
+<script>
+function toggleTheme(){var r=document.documentElement;var d=r.getAttribute('data-theme')?r.getAttribute('data-theme')==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'light':'dark');try{localStorage.setItem('theme',r.getAttribute('data-theme'))}catch(e){}}
+try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+document.addEventListener('click',function(e){var d=document.querySelector('.topbar details');if(d&&d.open&&!d.contains(e.target))d.open=false});
+</script>
+</body>
+</html>

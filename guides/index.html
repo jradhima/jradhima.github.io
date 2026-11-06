@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guides — yannis radhima</title>
+  <meta name="description" content="Longer, multi-page guides on topics I'm learning in depth.">
+  <link rel="canonical" href="https://jradhima.github.io/guides/index.html">
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    .guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+    .guide-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem; text-decoration: none; color: inherit; transition: box-shadow 0.2s; display: block; }
+    .guide-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .guide-card h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #0066cc; }
+    .guide-card p { margin: 0; color: #666; font-size: 0.95rem; }
+    .guide-card .meta { margin-top: 0.75rem; font-size: 0.85rem; color: #888; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Guides</h1>
+    <p>Longer, multi-page guides on topics I'm learning in depth.</p>
+    <div class="guides-grid">
+      <a href="agent-stack/index.html" class="guide-card">
+        <h2>The agent stack, from the kernel up</h2>
+        <p>What it takes to run AI agents safely: processes and syscalls, MCP, sandboxes, egress, credentials, prompt injection and policy, tracing, control planes and the harness. Step-by-step examples throughout.</p>
+        <div class="meta">11 parts · November 2026</div>
+      </a>
+    </div>
+    <a href="../index.html" style="display: inline-block; margin-top: 2rem; color: #0066cc;">&larr; Back to Home</a>
+  </main>
+</body>
+</html>

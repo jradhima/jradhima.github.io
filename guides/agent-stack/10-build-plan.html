@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build Plan</title>
+<meta name="description" content="Build order, milestones, open design decisions, repo layout, reading list and glossary for the agent stack project.">
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--line:#e2ded5;--accent:#b4532a;--accent-soft:#f6e6dc;--ok:#2f6b45;--ok-soft:#e1efe5;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--bad-soft:#f6e0e0;--code-bg:#f4f2ed;--code-text:#2a2824;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:780px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .sp{flex:1}
+.topbar details{position:relative}
+.topbar summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:var(--surface)}
+.topbar summary::-webkit-details-marker{display:none}
+.topbar .menu{position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.topbar .menu a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.topbar .menu a:hover{background:var(--surface-2)}
+.topbar .menu a.cur{color:var(--accent);font-weight:600}
+.topbar .menu .n{display:inline-block;width:26px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.themebtn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+main{max-width:780px;margin:0 auto;padding:40px 20px 100px}
+.kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--serif);font-size:42px;line-height:1.12;margin:10px 0 12px;font-weight:600;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.2;margin:60px 0 6px;font-weight:600;scroll-margin-top:70px}
+h3{font-size:18px;margin:30px 0 6px;scroll-margin-top:70px}
+h4{font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:10px 0 14px}
+.lede{font-size:19px;color:var(--muted)}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0 18px}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+pre .c{color:var(--muted);font-style:italic}
+pre .k{color:var(--accent)}
+pre b{color:var(--accent);font-weight:600}
+.cap{font-size:12px;color:var(--muted);font-family:var(--mono);margin:16px 0 -8px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:14px 0 20px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+.callout b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.callout.why{background:var(--accent-soft);border-color:transparent}.callout.why b.t{color:var(--accent)}
+.callout.gotcha{background:var(--warn-soft);border-color:transparent}.callout.gotcha b.t{color:var(--warn)}
+.callout.ok{background:var(--ok-soft);border-color:transparent}.callout.ok b.t{color:var(--ok)}
+.callout.bad{background:var(--bad-soft);border-color:transparent}.callout.bad b.t{color:var(--bad)}
+.callout p:first-of-type{margin-top:0}.callout p:last-child,.callout ul:last-child,.callout ol:last-child{margin-bottom:0}
+.oneminute{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.oneminute b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}
+.oneminute p:last-child{margin-bottom:0}.oneminute p:first-of-type{margin-top:0}
+ol.steps{list-style:none;counter-reset:st;padding:0;margin:16px 0 20px}
+ol.steps>li{counter-increment:st;position:relative;padding:2px 0 12px 42px;border-left:2px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent}
+ol.steps>li::before{content:counter(st);position:absolute;left:-14px;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:600 13px/26px var(--sans);text-align:center}
+ol.steps pre{margin:8px 0 4px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0;font-size:13.5px}
+.flow .b{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:12.5px}
+.flow .b.hl{border-color:var(--accent);color:var(--accent)}
+.flow .ar{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 4px;color:var(--text);text-transform:none;letter-spacing:0;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+a.card{text-decoration:none;color:inherit;display:block}
+a.card:hover{border-color:var(--accent)}
+.spec{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 18px 10px;margin:18px 0}
+.spec>b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 2px}
+.spec ul{margin:6px 0 10px;padding-left:20px}
+ul.tight li,ol.tight li{margin:3px 0}
+.check{margin:28px 0 0}
+details.q{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+details.q summary{cursor:pointer;font-weight:600}
+details.q[open] summary{margin-bottom:6px}
+details.q p:last-child{margin-bottom:4px}
+.nextprev{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:70px;padding-top:24px;border-top:1px solid var(--line)}
+.nextprev a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-decoration:none;color:var(--text);background:var(--surface)}
+.nextprev a:hover{border-color:var(--accent)}
+.nextprev small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.nextprev .nx{text-align:right;grid-column:2}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:4px}
+.stack{margin:22px 0;display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:160px 1fr 120px;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14.5px;text-decoration:none;color:var(--text)}
+.layer:hover{border-color:var(--accent)}
+.layer .n{font-weight:600}.layer .d{color:var(--muted)}.layer .c{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+@media (max-width:680px){h1{font-size:32px}h2{font-size:24px}.grid2{grid-template-columns:1fr}.layer{grid-template-columns:1fr;gap:2px}.layer .c{text-align:left}.nextprev{grid-template-columns:1fr}.nextprev .nx{grid-column:1}.topbar .home span{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+<a class="home" href="index.html">◆ <span>Agent stack guide</span></a>
+<div class="sp"></div>
+<details><summary>Contents ▾</summary><div class="menu">
+<a href="index.html"><span class="n">·</span>Start here</a>
+<a href="01-processes.html"><span class="n">01</span>Processes &amp; syscalls</a>
+<a href="02-mcp.html"><span class="n">02</span>Tools over MCP</a>
+<a href="03-isolation.html"><span class="n">03</span>Isolation</a>
+<a href="04-network.html"><span class="n">04</span>Network &amp; egress</a>
+<a href="05-identity.html"><span class="n">05</span>Identity &amp; secrets</a>
+<a href="06-policy.html"><span class="n">06</span>Policy &amp; injection</a>
+<a href="07-tracing.html"><span class="n">07</span>Tracing</a>
+<a href="08-control-plane.html"><span class="n">08</span>Run control plane</a>
+<a href="09-harness.html"><span class="n">09</span>The harness</a>
+<a href="10-build-plan.html" class=cur><span class="n">10</span>Build plan</a>
+</div></details>
+<button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
+</div></div>
+<main>
+<div class="kicker">Part 10 · Doing it</div>
+<h1>Build plan</h1>
+<p class="lede">The order to build things in, what &quot;done&quot; means for each part, the decisions that are yours to make, how to lay out the repo, and what to read along the way.</p>
+<div class="oneminute"><b class="t">In one minute</b>
+<p>Build in an order where every stage is usable on its own and the next one builds on it: <b>MCP server first</b> (useful from day one, in any agent), then the <b>sandbox</b> under it, then <b>tracing</b> to see everything, then <b>egress and credentials</b>, then <b>policy</b>, and finally the <b>harness and control plane</b> that assemble it all. Tests from the first commit, a short write-up after each component, and every design decision written down before you build.</p></div>
+
+<h2 id="roadmap">The roadmap</h2>
+<p>Times assume a few evenings a week. The "done means" checks matter more than the dates.</p>
+<div class="tw"><table>
+<tr><th>Weeks</th><th>Build</th><th>Done means</th><th>Write-up</th></tr>
+<tr><td>0</td><td>Exercises from <a href="01-processes.html#build">Processes</a>: <code>unshare</code>, <code>strace</code>, the toy jail</td><td>You can predict what each experiment prints before running it</td><td>(notes only)</td></tr>
+<tr><td>1–2</td><td><a href="02-mcp.html#build">mcpbox v0</a>: hand-written JSON-RPC, four tools, subprocess runner; then the official SDK</td><td>Works from a real MCP client; protocol tests pass</td><td>"MCP is just JSON lines"</td></tr>
+<tr><td>3–7</td><td><a href="03-isolation.html#build">box v0 → v1</a>: namespaces, root, cgroups, cleanup; then capabilities, Landlock, seccomp. Plug into mcpbox.</td><td>The escape test table passes</td><td>"I tried to escape my own sandbox"</td></tr>
+<tr><td>8–9</td><td><a href="07-tracing.html#build">trace</a>: spans, JSON-lines and OTLP export, propagation, redaction, terminal viewer</td><td>One connected tree per run; planted secret never appears</td><td>"Tracing an agent across processes"</td></tr>
+<tr><td>10–12</td><td><a href="04-network.html#build">gate</a> (allowlist, Design B, rebinding-safe dialer), then <a href="05-identity.html#build">credentials</a> (TLS termination, injection)</td><td>Egress and credential tests pass</td><td>"An agent that can't leak the token it uses"</td></tr>
+<tr><td>13–14</td><td><a href="06-policy.html#build">policy</a>: rules, taint, approvals, hash-chained audit</td><td>Scripted injection scenario is stopped</td><td>"Permissions that assume the agent got injected"</td></tr>
+<tr><td>15–18</td><td><a href="09-harness.html#build">loop</a> and <a href="08-control-plane.html#build">runs</a></td><td>20 parallel runs with cancels, timeouts and a <code>kill -9</code>: nothing left behind</td><td>"What 'spawn an agent in the cloud' really means"</td></tr>
+<tr><td>Later</td><td>gVisor and Firecracker backends for box, overlay and VM snapshots, remote MCP over HTTP</td><td>Measured comparisons</td><td>"Namespaces vs gVisor vs microVM, measured"</td></tr>
+</table></div>
+<div class="callout why"><b class="t">Why this order</b>
+<ul class="tight">
+<li><b>MCP first</b> because it's small, it's immediately useful from tools you already use, and it gives every later component a way to be exercised.</li>
+<li><b>Sandbox second</b> because it's the deepest topic and everything below the harness depends on it.</li>
+<li><b>Tracing before the rest</b> because from then on you can see what your components actually do, which makes debugging egress and policy far easier.</li>
+<li><b>Harness and control plane last</b> because by then they're assembly of parts you already understand, not a tutorial you're following.</li>
+</ul></div>
+
+<h2 id="decisions">Decisions that are yours</h2>
+<p>None of these has a single right answer. Before building each component, write a short decision note (a few lines in <code>docs/decisions/</code>: the choice, the alternatives, why). Revisiting them later is where much of the learning happens.</p>
+<div class="tw"><table>
+<tr><th>Component</th><th>Open questions</th></tr>
+<tr><td>mcpbox</td><td>Is <code>run_command</code> enough, or do file tools earn their place? How is output truncated, and what does the model see when it is? One server process per run, or one for many?</td></tr>
+<tr><td>box</td><td>Host <code>/usr</code> read-only, or separate images per profile? Seccomp denylist or allowlist? What happens to a run's files when it ends? How does the child receive its configuration?</td></tr>
+<tr><td>trace</td><td>What counts as a span? Full content, or hashes and sizes by default? Where is the redaction list maintained?</td></tr>
+<tr><td>gate</td><td>Hostname-only, or TLS termination too? Allowlist per run, per profile or per task type? If the gate crashes, do runs fail closed (they should; how do you test it)?</td></tr>
+<tr><td>credentials</td><td>Fine-grained tokens or a GitHub App? How short-lived is short enough? What happens to a run when minting fails?</td></tr>
+<tr><td>policy</td><td>What makes content untrusted: the source, the repo owner, the tool? Can a human clear taint? Rules in YAML or in Go? Which tools are structured, and which stay as raw shell?</td></tr>
+<tr><td>runs</td><td>SQLite or plain files? How do approvals reach you when you're away from the terminal? What's the heartbeat interval and the "presumed dead" threshold?</td></tr>
+<tr><td>loop</td><td>Which model provider first? When do old tool results get shrunk? What exactly counts as "stuck"? Add <a href="09-harness.html#codemode">code mode</a>, and if so, in which language and which sandbox?</td></tr>
+</table></div>
+
+<h2 id="repo">Repo layout</h2>
+<pre><code>agentic-platform/
+  go.mod                     <span class="c"># one module; packages stay independent</span>
+  cmd/
+    mcpbox/ box/ gate/ trace/ policy/ runs/ loop/
+  pkg/
+    mcp/       <span class="c"># JSON-RPC + MCP types, server and client</span>
+    box/       <span class="c"># Run(ctx, Spec) (Result, error)</span>
+    gate/      <span class="c"># proxy, allowlist, dialer, TLS, credentials</span>
+    trace/     <span class="c"># spans, exporters, redaction, viewer model</span>
+    policy/    <span class="c"># rules, Decide, Observe, audit</span>
+    runs/      <span class="c"># state machine, store, API, reconcile</span>
+    loop/      <span class="c"># the harness, Model interface, provider adapters</span>
+  internal/testutil/         <span class="c"># fake model, fake MCP client, escape-test helpers</span>
+  docs/
+    guide/                   <span class="c"># this guide</span>
+    decisions/               <span class="c"># one short note per decision</span>
+    posts/                   <span class="c"># one write-up per component</span>
+  Makefile                   <span class="c"># fmt vet staticcheck test test-race test-escape</span></code></pre>
+
+<h2 id="rules">Working rules</h2>
+<ul>
+  <li><b>Tests from the first commit.</b> For box they're escape attempts; for policy, table-driven cases; for mcp, a fake client over pipes; for runs, kill-and-reconcile tests.</li>
+  <li><b>Every component works on its own</b> through a boring interface (CLI, JSON over stdio, HTTP, MCP, OTLP). If testing one component requires running another, the interface is wrong.</li>
+  <li><b>Standard library first.</b> Add a dependency when it clearly earns its place: <code>x/sys</code>, a Landlock library, a seccomp library, the OTel SDK, the MCP Go SDK (after your own version), a SQLite driver, one model SDK.</li>
+  <li><b>Fail closed everywhere.</b> If setup, the gate, minting or policy fails, the run stops. It never continues with fewer protections.</li>
+  <li><b>Each package has a one-paragraph README:</b> what problem it solves, its interface, what it deliberately doesn't do.</li>
+  <li><b>Write it up when a component is done.</b> The write-up is how you check that you understand it, and it's what other people will see.</li>
+</ul>
+
+<h2 id="reading">Reading list, by topic</h2>
+<div class="tw"><table>
+<tr><th>Topic</th><th>Read</th></tr>
+<tr><td>Processes</td><td>Man pages (on Linux or at man7.org): <code>fork(2)</code>, <code>execve(2)</code>, <code>clone(2)</code>, <code>unshare(1)</code>. The Go standard library's <code>os/exec</code> and <code>syscall</code> source, especially <code>forkAndExecInChild</code>.</td></tr>
+<tr><td>MCP</td><td>The specification at <a href="https://modelcontextprotocol.io">modelcontextprotocol.io</a>: lifecycle, tools, transports, and the security best practices page. The JSON-RPC 2.0 specification (short). The official Go SDK.</td></tr>
+<tr><td>Isolation</td><td><code>namespaces(7)</code>, <code>user_namespaces(7)</code>, <code>cgroups(7)</code>, <code>seccomp(2)</code>, <code>landlock(7)</code>. The kernel's cgroup v2 documentation. Liz Rice's "Containers from scratch" talk (in Go) and her book <em>Container Security</em>. runc's source.</td></tr>
+<tr><td>Stronger isolation</td><td>The Firecracker paper (NSDI 2020). gVisor's architecture documentation. LWN.net articles on seccomp and Landlock.</td></tr>
+<tr><td>Network</td><td>The HTTP specification's section on <code>CONNECT</code> (RFC 9110). Any good introduction to TLS certificates and trust stores. OWASP's material on SSRF.</td></tr>
+<tr><td>Identity</td><td>Your cloud provider's workload identity federation docs (read how the token exchange actually works). GitHub's docs on GitHub App installation access tokens. An introduction to JWTs.</td></tr>
+<tr><td>Policy</td><td>Simon Willison's writing on prompt injection, the dual-LLM pattern and "the lethal trifecta". <em>Defeating Prompt Injections by Design</em> (CaMeL, Google DeepMind, 2025). The OWASP Top 10 for LLM applications.</td></tr>
+<tr><td>Harness &amp; code mode</td><td>Cloudflare's "Code Mode: the better way to use MCP" post. Anthropic's engineering post "Code execution with MCP", on progressive disclosure, filtering data in code, and the sandboxing it requires.</td></tr>
+<tr><td>Tracing</td><td>OpenTelemetry's concepts pages (traces, context propagation). The OTel GenAI semantic conventions. The W3C Trace Context specification.</td></tr>
+<tr><td>Control plane</td><td>The Server-Sent Events section of the HTML standard. Kubernetes' explanation of controllers and reconciliation. The overlayfs documentation in the kernel docs. Firecracker's snapshotting docs.</td></tr>
+</table></div>
+
+<h2 id="glossary">Glossary</h2>
+<div class="tw"><table>
+<tr><td><b>Audit log</b></td><td>Append-only record of every decision; hash-chained to make tampering detectable</td></tr>
+<tr><td><b>Bearer token</b></td><td>A credential that works for whoever holds it</td></tr>
+<tr><td><b>Bind mount</b></td><td>Making an existing directory appear at a second location</td></tr>
+<tr><td><b>Capability</b></td><td>One slice of root's powers, granted or dropped individually</td></tr>
+<tr><td><b>cgroup</b></td><td>A kernel group of processes with resource accounting and limits</td></tr>
+<tr><td><b>CONNECT</b></td><td>The HTTP method that asks a proxy for a tunnel to a host and port</td></tr>
+<tr><td><b>Code mode</b></td><td>The harness presents tools as functions; the model writes a program that calls them, run in a sandbox</td></tr>
+<tr><td><b>Control plane</b></td><td>The system that creates, tracks and cleans up runs, as opposed to the parts that do the work</td></tr>
+<tr><td><b>DNS rebinding</b></td><td>Making a hostname resolve to a different address between a check and a connection</td></tr>
+<tr><td><b>Egress</b></td><td>Outbound network traffic</td></tr>
+<tr><td><b>exec</b></td><td>Replacing the program running in a process; the process and its restrictions stay</td></tr>
+<tr><td><b>File descriptor</b></td><td>A small number a process uses to refer to an open file, socket or pipe</td></tr>
+<tr><td><b>fork</b></td><td>Cloning the current process</td></tr>
+<tr><td><b>gVisor</b></td><td>A user-space implementation of Linux that intercepts a sandboxed program's syscalls</td></tr>
+<tr><td><b>Harness</b></td><td>The program that runs the agent loop and executes tool calls</td></tr>
+<tr><td><b>JSON-RPC</b></td><td>A small convention for remote function calls in JSON; MCP is built on it</td></tr>
+<tr><td><b>JWT</b></td><td>A signed JSON document making claims like "I am X, valid until T, for Y"</td></tr>
+<tr><td><b>Landlock</b></td><td>Lets an unprivileged process permanently restrict its own file (and some network) access</td></tr>
+<tr><td><b>MCP</b></td><td>Model Context Protocol: a standard for offering tools to any agent harness</td></tr>
+<tr><td><b>Metadata service</b></td><td>The cloud VM's local endpoint (169.254.169.254) that hands out the VM's credentials</td></tr>
+<tr><td><b>MicroVM</b></td><td>A minimal virtual machine with its own kernel, booting in a fraction of a second</td></tr>
+<tr><td><b>Namespace</b></td><td>A kernel feature giving a process its own view of one kind of resource</td></tr>
+<tr><td><b>no_new_privs</b></td><td>A process flag that prevents gaining privileges through exec</td></tr>
+<tr><td><b>overlayfs</b></td><td>A filesystem that stacks read-only layers under one writable layer</td></tr>
+<tr><td><b>pivot_root</b></td><td>Swapping a mount namespace's root filesystem, so the old one can be removed</td></tr>
+<tr><td><b>Prompt injection</b></td><td>Instructions hidden in content the agent reads, which the model may follow</td></tr>
+<tr><td><b>Reconciliation</b></td><td>Repeatedly comparing what should exist with what does, and fixing the difference</td></tr>
+<tr><td><b>seccomp</b></td><td>A kernel filter on which system calls a process may make</td></tr>
+<tr><td><b>SNI</b></td><td>The hostname a client sends unencrypted at the start of a TLS connection</td></tr>
+<tr><td><b>Span / trace</b></td><td>A span is one timed operation; a trace is the tree of spans for one run</td></tr>
+<tr><td><b>SSE</b></td><td>Server-Sent Events: a long-lived HTTP response carrying a stream of text events</td></tr>
+<tr><td><b>Syscall</b></td><td>A request from a program to the kernel; the only way to touch anything outside the program</td></tr>
+<tr><td><b>Taint</b></td><td>A label meaning "this session has seen untrusted content"</td></tr>
+<tr><td><b>TLS termination</b></td><td>Decrypting traffic at a proxy, using a CA the client trusts</td></tr>
+<tr><td><b>traceparent</b></td><td>The standard string carrying trace context between processes</td></tr>
+<tr><td><b>Workload identity</b></td><td>A platform vouches for a running job, which exchanges that proof for a short-lived credential</td></tr>
+</table></div>
+
+<nav class="nextprev"><a class="pv" href="09-harness.html"><small>← Previous</small>The harness</a></nav>
+<footer>Agent stack guide · a personal learning project, November 2026. · <a href="../../index.html">yannis radhima</a></footer>
+</main>
+<script>
+function toggleTheme(){var r=document.documentElement;var d=r.getAttribute('data-theme')?r.getAttribute('data-theme')==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'light':'dark');try{localStorage.setItem('theme',r.getAttribute('data-theme'))}catch(e){}}
+try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+document.addEventListener('click',function(e){var d=document.querySelector('.topbar details');if(d&&d.open&&!d.contains(e.target))d.open=false});
+</script>
+</body>
+</html>

