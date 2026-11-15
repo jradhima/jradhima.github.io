@@ -1,1220 +1,704 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rent vs Buy — Simulator</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #0b0d12;
-      --surface:   #13161f;
-      --surface2:  #1b1f2c;
-      --border:    #242838;
-      --gold:      #e8b84b;
-      --gold-dim:  rgba(232,184,75,0.15);
-      --green:     #3fd68f;
-      --red:       #f0614a;
-      --blue:      #4d8ff5;
-      --text:      #e8eaf0;
-      --muted:     #6b7080;
-      --rent-color:#4d8ff5;
-      --buy-color: #e8b84b;
-      --savings-color: #9d4edd;
-      --cash-color: #6b7080;
-    }
-
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-    }
-
-    /* ── LAYOUT ────────────────────────────────────────────── */
-    .shell {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      grid-template-rows: 60px 1fr;
-      min-height: 100vh;
-    }
-
-    /* ── TOPBAR ─────────────────────────────────────────────── */
-    .topbar {
-      grid-column: 1 / -1;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 28px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .logo {
-      font-family: 'Syne', sans-serif;
-      font-weight: 800;
-      font-size: 17px;
-      letter-spacing: -0.5px;
-    }
-
-    .logo span { color: var(--gold); }
-
-    .run-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 20px;
-      background: var(--gold);
-      color: #0b0d12;
-      border: none;
-      border-radius: 6px;
-      font-family: 'Syne', sans-serif;
-      font-weight: 700;
-      font-size: 13px;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      transition: opacity .15s, transform .1s;
-    }
-
-    .run-btn:hover { opacity: .85; }
-    .run-btn:active { transform: scale(.97); }
-
-    .run-btn svg { width: 14px; height: 14px; }
-
-    .export-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 20px;
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-family: 'Syne', sans-serif;
-      font-weight: 700;
-      font-size: 13px;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      transition: color .15s, border-color .15s;
-    }
-    .export-btn:not(:disabled):hover { color: var(--text); border-color: var(--muted); }
-    .export-btn:disabled { opacity: .35; cursor: not-allowed; }
-    .export-btn svg { width: 14px; height: 14px; }
-
-    /* ── SIDEBAR ─────────────────────────────────────────────── */
-    .sidebar {
-      grid-row: 2;
-      border-right: 1px solid var(--border);
-      background: var(--surface);
-      padding: 24px 20px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .section-label {
-      font-family: 'Syne', sans-serif;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
-
-    .input-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .field label {
-      font-size: 11px;
-      color: var(--muted);
-      font-weight: 500;
-    }
-
-    .field input {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 10px;
-      border-radius: 6px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      transition: border-color .15s;
-      width: 100%;
-    }
-
-    .field input:focus {
-      outline: none;
-      border-color: var(--gold);
-    }
-
-    .divider {
-      height: 1px;
-      background: var(--border);
-    }
-
-    /* ── MAIN CONTENT ───────────────────────────────────────── */
-    .main {
-      grid-row: 2;
-      padding: 24px 28px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      overflow-y: auto;
-    }
-
-    /* ── EXPLANATION PANEL ──────────────────────────────────── */
-    .explanation-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 18px;
-    }
-    
-    .explanation-title {
-      font-family: 'Syne', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 12px;
-      color: var(--text);
-    }
-    
-    .explanation-content {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-    
-    .explanation-content p {
-      margin: 0;
-    }
-
-    .explanation-content b {
-      color: var(--text);
-    }
-
-    /* ── VERDICT CARDS ──────────────────────────────────────── */
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      opacity: 0;
-      transform: translateY(8px);
-      transition: opacity .4s, transform .4s;
-    }
-
-    .card.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .card:nth-child(2) { transition-delay: .06s; }
-    .card:nth-child(3) { transition-delay: .12s; }
-    .card:nth-child(4) { transition-delay: .18s; }
-
-    .card-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .card-value {
-      font-family: 'Syne', sans-serif;
-      font-size: 22px;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .card-sub {
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    .card.winner {
-      border-color: var(--gold);
-      background: var(--gold-dim);
-    }
-
-    .card.winner .card-label { color: var(--gold); }
-
-    .positive { color: var(--green); }
-    .negative { color: var(--red); }
-
-    /* ── BREAKDOWN SECTION ──────────────────────────────────── */
-    .breakdown-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .breakdown-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 18px;
-    }
-
-    .breakdown-panel-title {
-      font-family: 'Syne', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .breakdown-panel-title .dot {
-      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-    }
-
-    .breakdown-row {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .breakdown-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .breakdown-item-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-    }
-
-    .breakdown-item-name {
-      font-size: 11px;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .breakdown-item-name .swatch {
-      width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
-    }
-
-    .breakdown-item-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .breakdown-item-pct {
-      font-size: 10px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .bar-track {
-      height: 6px;
-      background: var(--surface2);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .bar-fill {
-      height: 100%;
-      border-radius: 3px;
-      transition: width .6s cubic-bezier(.16,1,.3,1);
-    }
-
-    .breakdown-total {
-      margin-top: 6px;
-      padding-top: 10px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .breakdown-total-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      font-family: 'Syne', sans-serif;
-    }
-
-    .breakdown-total-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .breakdown-deduction {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--red);
-    }
-
-    /* ── CHART ──────────────────────────────────────────────── */
-    .chart-wrapper {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
-    }
-
-    .chart-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .chart-title {
-      font-family: 'Syne', sans-serif;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .legend {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .legend-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
-
-    .chart-inner {
-      height: 280px;
-      position: relative;
-    }
-
-    /* ── TABLE ──────────────────────────────────────────────── */
-    .table-wrapper {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-    }
-
-    .table-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .table-title {
-      font-family: 'Syne', sans-serif;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .table-scroll {
-      overflow-x: auto;
-      max-height: 340px;
-      overflow-y: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 900px;
-    }
-
-    thead th {
-      background: var(--surface2);
-      padding: 10px 18px;
-      text-align: right;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--muted);
-      position: sticky;
-      top: 0;
-      z-index: 2;
-    }
-
-    thead th:first-child { text-align: left; }
-
-    tbody tr {
-      border-bottom: 1px solid var(--border);
-      opacity: 0;
-      transform: translateX(-6px);
-      transition: opacity .3s, transform .3s, background .15s;
-    }
-
-    tbody tr:last-child { border-bottom: none; }
-
-    tbody tr.visible {
-      opacity: 1;
-      transform: translateX(0);
-    }
-
-    tbody tr:hover { background: var(--surface2); }
-
-    td {
-      padding: 10px 18px;
-      text-align: right;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-    }
-
-    td:first-child {
-      text-align: left;
-      color: var(--muted);
-      font-size: 11px;
-      font-family: 'Inter', sans-serif;
-    }
-
-    td.best-buy  { color: var(--buy-color); }
-    td.best-rent { color: var(--rent-color); }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-family: 'Syne', sans-serif;
-      font-weight: 700;
-      letter-spacing: .5px;
-    }
-
-    .badge-buy  { background: rgba(232,184,75,.2); color: var(--buy-color); }
-    .badge-rent { background: rgba(77,143,245,.2); color: var(--rent-color); }
-
-    /* ── FAQ ─────────────────────────────────────────────────── */
-    .faq-panel {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      font-size: 12px;
-      line-height: 1.7;
-      color: var(--muted);
-    }
-
-    .faq-panel b { color: var(--text); }
-
-    .faq-panel p { margin-bottom: 10px; }
-    .faq-panel p:last-child { margin-bottom: 0; }
-
-    /* ── EMPTY STATE ─────────────────────────────────────────── */
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 60px 20px;
-      color: var(--muted);
-      gap: 10px;
-      text-align: center;
-    }
-
-    .empty-state svg { opacity: .3; }
-
-    .empty-state p { font-size: 13px; }
-
-    /* ── SCROLLBAR ───────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
-
-    /* ── RESPONSIVE ──────────────────────────────────────────── */
-    @media (max-width: 860px) {
-      .shell {
-        grid-template-columns: 1fr;
-        grid-template-rows: 60px auto 1fr;
-      }
-      .sidebar {
-        grid-row: 2;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-      }
-      .main {
-        grid-row: 3;
-      }
-      .cards {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rent or Buy</title>
+<meta name="description" content="Should you buy a home or rent and invest the difference? A calculator that runs a fair side-by-side, simulates 1,000 possible futures, and tells you what would flip the answer.">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--faint:#8d897f;--line:#e2ded5;--buy:#b4532a;--buy-soft:#f6e6dc;--rent:#2c6a9a;--rent-soft:#dfeaf3;--ok:#2f6b45;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--faint:#7a766d;--line:#36332d;--buy:#e8835a;--buy-soft:#3a2519;--rent:#7fb0dc;--rent-soft:#1a2a38;--ok:#7cc396;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--faint:#7a766d;--line:#36332d;--buy:#e8835a;--buy-soft:#3a2519;--rent:#7fb0dc;--rent-soft:#1a2a38;--ok:#7cc396;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--sans)}
+a{color:var(--rent)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:1240px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:10px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .crumb{color:var(--faint);font-size:14px}
+.topbar .sp{flex:1}
+.btn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 11px;font:13px var(--sans);cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--text);border-color:var(--faint)}
+.btn.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 20px 80px}
+header.intro h1{font-family:var(--serif);font-size:38px;line-height:1.12;margin:0 0 8px;font-weight:600;letter-spacing:-.01em}
+header.intro p{color:var(--muted);margin:0;max-width:720px;font-size:16px}
+.grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:28px;margin-top:26px;align-items:start}
+/* inputs */
+aside{position:sticky;top:62px;max-height:calc(100vh - 76px);overflow-y:auto;padding-right:6px;scrollbar-width:thin}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.presets .lbl{width:100%;font-size:12px;color:var(--faint)}
+.stay{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.stay .row{display:flex;justify-content:space-between;align-items:baseline}
+.stay label{font-weight:600}
+.stay output{font-family:var(--serif);font-size:24px;font-weight:600}
+input[type=range]{width:100%;accent-color:var(--buy);margin:8px 0 0}
+details.grp{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:10px}
+details.grp>summary{cursor:pointer;list-style:none;padding:11px 16px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+details.grp>summary::-webkit-details-marker{display:none}
+details.grp>summary::after{content:"+";color:var(--faint);font-weight:400;font-size:18px;line-height:1}
+details.grp[open]>summary::after{content:"−"}
+details.grp>summary small{font-weight:400;color:var(--faint);font-size:12px;margin-left:auto;margin-right:10px}
+.fields{padding:0 16px 12px;display:grid;gap:10px}
+.f label{display:block;font-size:13px;color:var(--muted);margin-bottom:3px}
+.f .box{display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.f .box:focus-within{border-color:var(--buy)}
+.f input{flex:1;min-width:0;background:transparent;border:0;color:var(--text);font:14px var(--mono);padding:7px 9px;outline:none}
+.f .u{font-size:12px;color:var(--faint);padding:0 9px;white-space:nowrap}
+.f .hint{font-size:12px;color:var(--faint);margin-top:3px;line-height:1.4}
+.f.changed label::after{content:" •";color:var(--buy)}
+.side-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+/* results */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:18px}
+.card h2{font-family:var(--serif);font-size:21px;margin:0 0 2px;font-weight:600}
+.card .sub{color:var(--muted);font-size:14px;margin:0 0 14px}
+.verdict{border-width:2px}
+.verdict.buy{border-color:var(--buy)}
+.verdict.rent{border-color:var(--rent)}
+.verdict .kick{font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.verdict.buy .kick{color:var(--buy)}.verdict.rent .kick{color:var(--rent)}.verdict.tie .kick{color:var(--warn)}
+.verdict h2{font-size:30px;margin:4px 0 8px;line-height:1.15}
+.verdict .lead{font-size:16px;margin:0 0 16px;max-width:760px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:var(--surface-2);border-radius:10px;padding:12px 14px}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-family:var(--serif);font-size:24px;font-weight:600;line-height:1.2;margin-top:2px}
+.stat .s{font-size:12px;color:var(--faint);margin-top:2px}
+.meter{height:6px;border-radius:3px;background:var(--rent);overflow:hidden;margin-top:7px}
+.meter i{display:block;height:100%;background:var(--buy)}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.toolbar .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:var(--surface);color:var(--muted);padding:5px 11px;font:13px var(--sans);cursor:pointer}
+.seg button.on{background:var(--text);color:var(--bg)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.chart{position:relative;height:300px}
+.chart.sm{height:230px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.two .card{margin-bottom:18px}
+.flip{width:100%;border-collapse:collapse;font-size:14px}
+.flip td{padding:10px 6px;border-top:1px solid var(--line);vertical-align:top}
+.flip tr:first-child td{border-top:0}
+.flip .now{font-family:var(--mono);color:var(--muted);white-space:nowrap;text-align:right}
+.flip .th{font-family:var(--mono);font-weight:600;white-space:nowrap;text-align:right}
+.flip .why{color:var(--faint);font-size:12px}
+.costs{display:grid;gap:7px}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) 84px;gap:10px;align-items:center;font-size:13px}
+.crow .n{color:var(--muted)}
+.crow .bar{height:7px;background:var(--surface-2);border-radius:4px;margin-top:3px;overflow:hidden}
+.crow .bar i{display:block;height:100%;border-radius:4px}
+.crow .val{font-family:var(--mono);text-align:right}
+.crow.total{border-top:1px solid var(--line);padding-top:8px;font-weight:600}
+.crow.total .n{color:var(--text)}
+.note{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:10px;padding:10px 12px;margin-top:12px}
+.note.warn{background:var(--warn-soft);color:var(--text)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:14px}
+.kv .v{font-family:var(--mono);text-align:right}
+.kv .muted{color:var(--muted)}
+table.data{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
+table.data th{position:sticky;top:0;background:var(--surface-2);color:var(--muted);font-weight:600;font-size:12px;text-align:right;padding:8px 10px}
+table.data td{white-space:nowrap;padding:7px 10px;text-align:right;font-family:var(--mono);border-top:1px solid var(--line)}
+table.data th:first-child,table.data td:first-child{text-align:left}
+table.data tr.mark td{background:var(--buy-soft)}
+.scroll{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:10px}
+.pos{color:var(--buy)}.neg{color:var(--rent)}
+.pins td,.pins th{text-align:right;padding:8px 10px;border-top:1px solid var(--line);font-size:13px}
+.pins th{color:var(--muted);font-weight:600;font-size:12px;border-top:0}
+.pins td:first-child,.pins th:first-child{text-align:left}
+.pins td{font-family:var(--mono);white-space:nowrap}
+.pins td:first-child{font-family:var(--sans)}
+.pins .x{background:none;border:0;color:var(--faint);cursor:pointer;font-size:15px}
+.pins .load{background:none;border:0;color:var(--rent);cursor:pointer;font:13px var(--sans);padding:0;text-align:left}
+.method{font-size:14px;color:var(--muted)}
+.method h3{font-family:var(--serif);color:var(--text);font-size:17px;margin:18px 0 4px}
+.method ul{padding-left:18px;margin:6px 0}
+.method li{margin:3px 0}
+.method b{color:var(--text)}
+footer{color:var(--faint);font-size:13px;margin-top:30px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}aside{position:static;max-height:none;padding-right:0}.stats{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.wrap{padding:20px 16px 60px}header.intro h1{font-size:30px}.two{grid-template-columns:minmax(0,1fr);gap:0}.flip tr{display:grid;grid-template-columns:1fr auto;border-top:1px solid var(--line)}.flip tr:first-child{border-top:0}.flip td{border:0;padding:6px 4px}.flip td:first-child{grid-column:1/-1;padding-top:10px}.flip td:last-child{text-align:right}.verdict h2{font-size:24px}.stat .v{font-size:20px}.card{padding:16px}.topbar .crumb{display:none}.chart{height:260px}}
+</style>
 </head>
-
 <body>
-<div class="shell">
+<div class="topbar"><div class="in">
+  <a class="home" href="../index.html">yannis radhima</a><span class="crumb">/ <a href="index.html" style="color:inherit">apps</a> / rent or buy</span>
+  <span class="sp"></span>
+  <button class="btn" id="shareBtn" title="Copy a link with these inputs">Copy link</button>
+  <button class="btn" id="themeBtn" title="Toggle theme">◐</button>
+</div></div>
 
-  <header class="topbar">
-    <div class="logo">RENT<span>/</span>BUY <span style="color:var(--muted);font-weight:400">SIMULATOR</span></div>
-    <div style="display:flex;gap:10px;align-items:center">
-      <button class="export-btn" id="exportBtn" onclick="exportCSV()" disabled>
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M8 2v8M5 7l3 3 3-3M3 13h10"/>
-        </svg>
-        EXPORT CSV
-      </button>
-      <button class="run-btn" onclick="runCalc()">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/>
-        </svg>
-        RUN SIMULATION
-      </button>
-    </div>
+<div class="wrap">
+  <header class="intro">
+    <h1>Should you buy, or rent and invest the difference?</h1>
+    <p>Both paths spend the same money every month. Whichever path costs less invests the gap, and the renter also invests the cash a purchase would have used. After you sell, which path leaves you richer? The answer uses your numbers and 1,000 simulated markets, and the page shows what would change it.</p>
   </header>
 
-  <aside class="sidebar">
+  <div class="grid">
+    <aside id="inputs"></aside>
 
-    <div>
-      <div class="section-label">General</div>
-      <div class="input-group">
-        <div class="field"><label>Simulation Period (years)</label><input id="years" type="number" value="20"></div>
-        <div class="field"><label>Monthly Savings (€)</label><input id="net_income_monthly" type="number" value="4000"></div>
-        <div class="field"><label>Income Raise / Year (€)</label><input id="income_annual_raise" type="number" value="100"></div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div>
-      <div class="section-label">Buying</div>
-      <div class="input-group">
-        <div class="field"><label>Home Price (€)</label><input id="home_price" type="number" value="300000"></div>
-        <div class="field"><label>Down Payment (%)</label><input id="down_payment_pct" type="number" value="10"></div>
-        <div class="field"><label>Mortgage Rate (e.g. 0.035)</label><input id="mortgage_rate" type="number" step="0.001" value="0.035"></div>
-        <div class="field"><label>Mortgage Term (years)</label><input id="mortgage_term" type="number" value="30"></div>
-        <div class="field"><label>Home Appreciation (%)</label><input id="home_appreciation" type="number" value="3"></div>
-        <div class="field"><label>Maintenance Cost (%)</label><input id="maintenance_cost_pct" type="number" value="1"></div>
-        <div class="field"><label>Property Tax (%)</label><input id="property_tax_pct" type="number" value="0.3"></div>
-        <div class="field"><label>Fixed Buying Costs (€)</label><input id="fixed_buying_costs" type="number" value="15000"></div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div>
-      <div class="section-label">Renting</div>
-      <div class="input-group">
-        <div class="field"><label>Monthly Rent (€)</label><input id="rent_monthly" type="number" value="1300"></div>
-        <div class="field"><label>Annual Rent Increase (%)</label><input id="rent_increase_rate" type="number" value="3"></div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div>
-      <div class="section-label">Investing & Savings</div>
-      <div class="input-group">
-        <div class="field"><label>Stock Market Return (%)</label><input id="stock_market_return" type="number" value="7"></div>
-        <div class="field"><label>Savings Interest Rate (%)</label><input id="savings_rate" type="number" step="0.1" value="1.5"></div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="section-label">Input Guide</div>
-    <div id="faqPanel" class="faq-panel open">
-      <p><b>Simulation Period</b> — How many years to project. Can be shorter or longer than the mortgage term — e.g. simulate 20 years of a 30-year mortgage.</p>
-      <p><b>Mortgage Term</b> — The full length of the loan (e.g. 25 or 30 years). This sets the monthly repayment amount. If your simulation period is shorter, you'll see the remaining balance on the loan at that point.</p>
-      <p><b>Mortgage Rate</b> — Annual interest rate on your loan (e.g. 3.5% = 0.035).</p>
-      <p><b>Rent Increase (%)</b> — How much rent rises each year.</p>
-      <p><b>Home Appreciation (%)</b> — Expected yearly increase in home value.</p>
-      <p><b>Market Return (%)</b> — Expected annual return if you invest instead of tying up capital in a home.</p>
-      <p><b>Maintenance (%)</b> — Yearly upkeep cost as % of home value.</p>
-      <p><b>Property Tax (%)</b> — Annual property tax rate.</p>
-      <p><b>Fixed Buying Costs</b> — One-time costs: notary, closing costs, taxes, etc.</p>
-      <p><b>Income & Raises</b> — Monthly take-home and annual salary growth used to simulate savings over time.</p>
-    </div>
-
-  </aside>
-
-  <main class="main">
-      
-    <div class="explanation-panel">
-      <div class="explanation-title">Scenario Definitions</div>
-      <div class="explanation-content">
-        <p><b><span style="color:var(--rent-color)">Rent Net Worth:</span></b> You choose to rent a home. The money you would have spent on a down payment and buying costs, plus any leftover monthly income (income minus rent), is invested in the stock market.</p>
-        <p><b><span style="color:var(--buy-color)">Buy Net Worth:</span></b> You buy a home. You pay the mortgage, property taxes, and home maintenance. Any leftover monthly income is invested in the stock market. Your Net Worth is your home equity plus your stock portfolio, minus initial buying costs.</p>
-        <p><b><span style="color:var(--savings-color)">Savings Account:</span></b> You rent, but instead of investing in the stock market, all your savings go into a traditional savings account earning the fixed interest rate specified in the sidebar.</p>
-        <p><b><span style="color:var(--cash-color)">Cash (Do Nothing):</span></b> You rent, but you keep all your extra money in cash under the mattress. It grows at 0%.</p>
-      </div>
-    </div>
-
-    <div class="cards" id="cards">
-      <div class="card" id="c-rent">
-        <div class="card-label">🏠 Rent Net Worth</div>
-        <div class="card-value" id="cv-rent">—</div>
-        <div class="card-sub" id="cs-rent">at end of period</div>
-      </div>
-      <div class="card" id="c-buy">
-        <div class="card-label">🔑 Buy Net Worth</div>
-        <div class="card-value" id="cv-buy">—</div>
-        <div class="card-sub" id="cs-buy">at end of period</div>
-      </div>
-      <div class="card" id="c-delta">
-        <div class="card-label">Δ Difference</div>
-        <div class="card-value" id="cv-delta">—</div>
-        <div class="card-sub">buy minus rent</div>
-      </div>
-      <div class="card" id="c-breakeven">
-        <div class="card-label">⚡ Break-even Year</div>
-        <div class="card-value" id="cv-breakeven">—</div>
-        <div class="card-sub" id="cs-breakeven">when buying overtakes renting</div>
-      </div>
-    </div>
-
-    <div class="chart-wrapper">
-      <div class="chart-header">
-        <div class="chart-title">Net Worth Over Time</div>
-        <div class="legend">
-          <div class="legend-item">
-            <div class="legend-dot" style="background:var(--rent-color)"></div>
-            Renting (Stocks)
-          </div>
-          <div class="legend-item">
-            <div class="legend-dot" style="background:var(--buy-color)"></div>
-            Buying
-          </div>
-          <div class="legend-item">
-            <div class="legend-dot" style="background:var(--savings-color)"></div>
-            Savings Account
-          </div>
-          <div class="legend-item">
-            <div class="legend-dot" style="background:var(--cash-color)"></div>
-            Cash (0%)
-          </div>
+    <main id="results">
+      <section class="card verdict" id="verdict">
+        <div class="kick" id="vKick">—</div>
+        <h2 id="vTitle">—</h2>
+        <p class="lead" id="vLead"></p>
+        <div class="stats">
+          <div class="stat"><div class="k" id="sDiffK">Difference</div><div class="v" id="sDiff">—</div><div class="s" id="sDiffS"></div></div>
+          <div class="stat"><div class="k">Chance buying wins</div><div class="v" id="sProb">—</div><div class="meter"><i id="sProbBar"></i></div></div>
+          <div class="stat"><div class="k">Buying pulls ahead</div><div class="v" id="sBE">—</div><div class="s" id="sBES"></div></div>
+          <div class="stat"><div class="k">Break-even rent</div><div class="v" id="sER">—</div><div class="s">buying wins above this</div></div>
         </div>
-      </div>
-      <div class="chart-inner">
-        <canvas id="chart"></canvas>
-      </div>
-    </div>
+      </section>
 
-    <div class="breakdown-grid" id="breakdownSection">
-      <div class="breakdown-panel">
-        <div class="breakdown-panel-title">
-          <div class="dot" style="background:var(--rent-color)"></div>
-          Renting (Stocks) — Final Year Composition
+      <section class="card">
+        <div class="toolbar">
+          <div><h2>Your wealth if you sell after each year</h2><p class="sub" style="margin:0">After selling costs, paying off the mortgage, and tax on investment gains.</p></div>
+          <span class="sp"></span>
+          <div class="seg" id="realSeg"><button data-v="1" class="on">Today's €</button><button data-v="0">Future €</button></div>
         </div>
-        <div class="breakdown-row">
-          <div class="breakdown-item">
-            <div class="breakdown-item-header">
-              <div class="breakdown-item-name">
-                <div class="swatch" style="background:#4d8ff5"></div>
-                Stock Portfolio
-              </div>
-              <div>
-                <span class="breakdown-item-value" id="bd-rent-portfolio">—</span>
-                <span class="breakdown-item-pct" id="bd-rent-portfolio-pct"></span>
-              </div>
-            </div>
-            <div class="bar-track"><div class="bar-fill" id="bar-rent-portfolio" style="background:#4d8ff5;width:0%"></div></div>
-          </div>
-        </div>
-        <div class="breakdown-total">
-          <div class="breakdown-total-label">Net Worth</div>
-          <div class="breakdown-total-value" id="bd-rent-total">—</div>
-        </div>
+        <div class="legend" style="margin:6px 0 10px"><span><i style="background:var(--buy)"></i>Buy</span><span><i style="background:var(--rent)"></i>Rent &amp; invest</span></div>
+        <div class="chart"><canvas id="cWealth"></canvas></div>
+      </section>
+
+      <div class="two">
+        <section class="card">
+          <h2>Odds by how long you stay</h2>
+          <p class="sub">Share of 1,000 simulated markets where buying ends ahead if you sell in that year.</p>
+          <div class="chart sm"><canvas id="cProb"></canvas></div>
+        </section>
+        <section class="card">
+          <h2>Range of outcomes</h2>
+          <p class="sub">Buying's lead (above 0) or deficit (below 0). The middle 80% of futures is shaded and the line is the median.</p>
+          <div class="chart sm"><canvas id="cFan"></canvas></div>
+        </section>
       </div>
 
-      <div class="breakdown-panel">
-        <div class="breakdown-panel-title">
-          <div class="dot" style="background:var(--buy-color)"></div>
-          Buying — Final Year Composition
-        </div>
-        <div class="breakdown-row">
-          <div class="breakdown-item">
-            <div class="breakdown-item-header">
-              <div class="breakdown-item-name">
-                <div class="swatch" style="background:#e8b84b"></div>
-                House Equity
-              </div>
-              <div>
-                <span class="breakdown-item-value" id="bd-buy-equity">—</span>
-                <span class="breakdown-item-pct" id="bd-buy-equity-pct"></span>
-              </div>
-            </div>
-            <div class="bar-track"><div class="bar-fill" id="bar-buy-equity" style="background:#e8b84b;width:0%"></div></div>
-          </div>
-          <div class="breakdown-item">
-            <div class="breakdown-item-header">
-              <div class="breakdown-item-name">
-                <div class="swatch" style="background:#3fd68f"></div>
-                Stock Portfolio
-              </div>
-              <div>
-                <span class="breakdown-item-value" id="bd-buy-portfolio">—</span>
-                <span class="breakdown-item-pct" id="bd-buy-portfolio-pct"></span>
-              </div>
-            </div>
-            <div class="bar-track"><div class="bar-fill" id="bar-buy-portfolio" style="background:#3fd68f;width:0%"></div></div>
-          </div>
-          <div class="breakdown-item">
-            <div class="breakdown-item-header">
-              <div class="breakdown-item-name">
-                <div class="swatch" style="background:var(--red)"></div>
-                Buying Costs (one-time)
-              </div>
-              <span class="breakdown-deduction" id="bd-buy-costs">—</span>
-            </div>
-          </div>
-        </div>
-        <div class="breakdown-total">
-          <div class="breakdown-total-label">Net Worth</div>
-          <div class="breakdown-total-value" id="bd-buy-total">—</div>
-        </div>
-      </div>
-    </div>
+      <section class="card">
+        <h2>What would flip the answer</h2>
+        <p class="sub">With everything else held as you set it, this is the value at which buying and renting tie over <span class="yrs">—</span>.</p>
+        <table class="flip" id="flip"></table>
+      </section>
 
-    <div class="chart-wrapper">
-      <div class="chart-header">
-        <div class="chart-title">Wealth Composition Over Time</div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:#4d8ff5"></div>Rent: Portfolio</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#e8b84b"></div>Buy: House Equity</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#3fd68f"></div>Buy: Portfolio</div>
+      <div class="two">
+        <section class="card">
+          <h2>What owning really costs</h2>
+          <p class="sub">Average per month over your <span class="yrs">—</span>, in today's €. Repaying principal is <em>not</em> a cost because you keep it as equity. Interest, upkeep, taxes, fees, and the return your equity could have earned invested are costs.</p>
+          <div class="costs" id="costs"></div>
+          <div class="note" id="costNote"></div>
+        </section>
+        <section class="card">
+          <h2>Cash &amp; affordability</h2>
+          <p class="sub">What it takes on day one and every month.</p>
+          <div class="kv" id="afford"></div>
+          <div class="note" id="affordNote"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="toolbar">
+          <div><h2>Compare scenarios</h2><p class="sub" style="margin:0">Pin the current inputs, then change them: try an apartment against a house, a shorter stay, or a higher rate.</p></div>
+          <span class="sp"></span>
+          <button class="btn" id="pinBtn">+ Pin current</button>
         </div>
-      </div>
-      <div class="chart-inner">
-        <canvas id="chart2"></canvas>
-      </div>
-    </div>
+        <div id="pins" style="overflow-x:auto"></div>
+      </section>
 
-    <div class="table-wrapper">
-      <div class="table-header">
-        <div class="table-title">Year-by-Year Breakdown</div>
-      </div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Year</th>
-              <th>Rent Portfolio</th>
-              <th>Rent NW</th>
-              <th>Buy Portfolio</th>
-              <th>House Equity</th>
-              <th>Buy NW</th>
-              <th>Savings NW</th>
-              <th>Cash NW</th>
-              <th>Δ Delta (Buy - Rent)</th>
-              <th>Winner</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody">
-            <tr class="visible">
-              <td colspan="10">
-                <div class="empty-state">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M3 3h18v18H3z" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/>
-                  </svg>
-                  <p>Run the simulation to see results</p>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <section class="card">
+        <div class="toolbar">
+          <div><h2>Year by year</h2><p class="sub" style="margin:0">Based on your expected inputs, in <span class="unitLbl">today's €</span>.</p></div>
+          <span class="sp"></span>
+          <button class="btn" id="csvBtn">Download CSV</button>
+        </div>
+        <div class="scroll"><table class="data" id="table"></table></div>
+      </section>
 
-  </main>
+      <section class="card method">
+        <h2>How this works</h2>
+        <h3>A fair comparison</h3>
+        <p>Both paths have exactly the same money available. On day one, the buyer pays the down payment and the purchase costs, and the renter invests that same sum. Each month, each path pays its housing costs. The <b>buyer</b> pays the mortgage, upkeep, property tax, insurance and building fees. The <b>renter</b> pays rent. Whichever path is cheaper that month invests the difference. Once the mortgage is paid off, owning usually becomes the cheaper path, so the buyer starts investing too.</p>
+        <h3>Net worth means "if you sold today"</h3>
+        <p><b>Buy:</b> home value minus selling costs minus the remaining mortgage, plus any investments after tax. <b>Rent:</b> investments after tax on gains. Profit on a main home is assumed to be tax-free, which is the usual rule in Belgium and most of Europe.</p>
+        <h3>Uncertainty</h3>
+        <p>The headline numbers assume your inputs hold exactly every year. Real markets are noisy. The odds and the range come from 1,000 simulated futures. In each one, stock returns and home prices vary year to year around your expected values, using the volatility under <em>Advanced</em>, and are mildly correlated (ρ = 0.2). Rents partly follow home prices: half of a home-price surprise feeds into that year's rent increase, because a housing boom also pushes rents up. The simulation uses a fixed random seed, so the same inputs always give the same result.</p>
+        <h3>Defaults</h3>
+        <ul>
+          <li><b>Home prices +3%/yr, inflation 2%:</b> over the long run, home prices in most of Europe have grown only slightly faster than inflation.</li>
+          <li><b>Investments 7%/yr:</b> roughly the long-run nominal return of a global stock index (about 5% after inflation). The calculation then subtracts fund costs and tax on gains.</li>
+          <li><b>Maintenance 1%/yr of home value:</b> a common rule of thumb. Use more for older houses and less for apartments where the building fees cover the shared parts.</li>
+          <li><b>Purchase costs 6%:</b> roughly what you would pay for a home you live in, in Flanders, including the mortgage deed. Brussels and Wallonia cost more (see the hint beside the field).</li>
+        </ul>
+        <h3>What's not modelled</h3>
+        <ul>
+          <li>Mortgage-interest tax relief: it is gone in Flanders, Brussels and Wallonia. Rental deposits, moving costs and big renovations are also left out.</li>
+          <li>Rates that change: the mortgage is treated as fixed-rate for its full term.</li>
+          <li>The money isn't everything. Security, freedom to move, and a home you can change all matter. If buying costs you €100/month more but you value staying put more than that, buying can still be the right call.</li>
+          <li><b>Discipline:</b> the renter only comes out ahead if they actually invest the difference. Lower <em>Share actually invested</em> under <em>Advanced</em> to see how much that matters.</li>
+        </ul>
+        <p style="margin-top:14px">This is a model, not financial advice. Use it to see which assumptions matter, and stress-test the ones you're least sure of.</p>
+      </section>
+      <footer>All calculations run in your browser. Nothing is sent anywhere.</footer>
+    </main>
+  </div>
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
-  // ── EXPORT ───────────────────────────────────────────────
-  let lastRun = null;
+// ───────────────────────── Inputs ─────────────────────────
+const FIELDS = [
+  {g:'home', id:'price', label:'Purchase price', u:'€', step:5000, def:350000},
+  {g:'home', id:'downPct', label:'Down payment', u:'%', step:1, def:20, hint:'Belgian banks usually want 10–20%, plus the purchase costs in cash.'},
+  {g:'home', id:'buyCostPct', label:'Purchase costs (taxes, notary, mortgage deed)', u:'% of price', step:0.5, def:6, hint:'Own home: Flanders ≈ 5–6% · Wallonia ≈ 6–7% · Brussels ≈ 8–12% · NL ≈ 2–6% · DE ≈ 9–12% · FR ≈ 8%.'},
+  {g:'home', id:'rate', label:'Mortgage rate (fixed)', u:'%/yr', step:0.05, def:3.3},
+  {g:'home', id:'term', label:'Mortgage term', u:'years', step:1, def:25},
+  {g:'home', id:'appr', label:'Home price growth', u:'%/yr', step:0.1, def:3, hint:'Long run ≈ inflation + 0–1%.'},
+  {g:'home', id:'maint', label:'Maintenance & repairs', u:'% of value/yr', step:0.1, def:1, hint:'Apartments ≈ 0.5% (the building fees cover the rest) · older houses 1.5–2%.'},
+  {g:'home', id:'propTax', label:'Property tax', u:'€/yr', step:50, def:1200},
+  {g:'home', id:'insurance', label:'Home insurance', u:'€/yr', step:50, def:450},
+  {g:'home', id:'hoa', label:'Building / co-owner fees', u:'€/mo', step:10, def:0, hint:'Apartments: building fees ("syndic") are typically €100–300/mo.'},
+  {g:'home', id:'sellPct', label:'Selling costs', u:'% of price', step:0.5, def:3, hint:'Estate agent and certificates. About 3–4% with an agent.'},
+  {g:'rent', id:'rent', label:'Rent for a comparable home', u:'€/mo', step:25, def:1300, hint:'Same size, area and quality. This is the single most important input.'},
+  {g:'rent', id:'rentGrowth', label:'Rent increase', u:'%/yr', step:0.1, def:2.5, hint:'Belgian rents are indexed to the health index each year.'},
+  {g:'inv', id:'ret', label:'Investment return', u:'%/yr', step:0.1, def:7, hint:'Global stock index ≈ 7% nominal over the long run (≈ 5% after inflation).'},
+  {g:'inv', id:'fee', label:'Fund & broker costs', u:'%/yr', step:0.05, def:0.2},
+  {g:'inv', id:'gainsTax', label:'Tax on investment gains', u:'%', step:1, def:10, hint:'Belgium: 10% from 2026, with a yearly exemption for small gains (ignored here, which is slightly conservative).'},
+  {g:'you', id:'income', label:'Net household income', u:'€/mo', step:100, def:4500, hint:'Only used for the affordability check.'},
+  {g:'adv', id:'inflation', label:'Inflation', u:'%/yr', step:0.1, def:2, hint:'Used for "today\'s €" and to grow property tax, insurance and building fees.'},
+  {g:'adv', id:'discipline', label:'Share of savings actually invested', u:'%', step:5, def:100, hint:'100% = every euro saved is invested. Be honest with yourself.'},
+  {g:'adv', id:'volS', label:'Stock volatility', u:'%/yr', step:1, def:16},
+  {g:'adv', id:'volH', label:'Home price volatility', u:'%/yr', step:1, def:6, hint:'A single home moves more than a national index.'},
+];
+const GROUPS = [
+  {g:'home', t:'The home', open:true},
+  {g:'rent', t:'Renting instead', open:true},
+  {g:'inv', t:'Investing', open:true},
+  {g:'you', t:'You', open:false},
+  {g:'adv', t:'Advanced', open:false},
+];
+const DEF = Object.fromEntries(FIELDS.map(f => [f.id, f.def]));
+DEF.years = 15;
 
-  function exportCSV() {
-    if (!lastRun) return;
-    const { inputs, rows } = lastRun;
+const PRESETS = {
+  'City apartment': {price:300000, rent:1150, maint:0.5, hoa:175, propTax:900, insurance:250, appr:2.8, volH:6},
+  'Family house':   {price:450000, rent:1650, maint:1.3, hoa:0, propTax:1500, insurance:550, appr:3.0, volH:7},
+  'Fixer-upper':    {price:320000, rent:1400, maint:2.0, hoa:0, propTax:1200, insurance:500, appr:3.2, volH:8},
+};
 
-    const q = v => `"${v}"`;
-    const lines = [];
+let P = {...DEF};
 
-    // ── Section 1: Assumptions
-    lines.push("RENT VS BUY SIMULATION — ASSUMPTIONS");
-    lines.push(`Generated,${new Date().toLocaleDateString("en-GB")}`);
-    lines.push("");
-    lines.push("Parameter,Value");
-    lines.push(`Simulation Period (years),${inputs.years}`);
-    lines.push(`Monthly Savings,${inputs.net_income_monthly}`);
-    lines.push(`Income Raise / Year,${inputs.income_annual_raise}`);
-    lines.push(`Home Price,${inputs.home_price}`);
-    lines.push(`Down Payment (%),${inputs.down_payment_pct * 100}`);
-    lines.push(`Mortgage Rate,${inputs.mortgage_rate}`);
-    lines.push(`Mortgage Term (years),${inputs.mortgage_term}`);
-    lines.push(`Home Appreciation (%),${inputs.home_appreciation * 100}`);
-    lines.push(`Maintenance Cost (%),${inputs.maintenance_cost_pct * 100}`);
-    lines.push(`Property Tax (%),${inputs.property_tax_pct * 100}`);
-    lines.push(`Fixed Buying Costs,${inputs.fixed_buying_costs}`);
-    lines.push(`Monthly Rent,${inputs.rent_monthly}`);
-    lines.push(`Annual Rent Increase (%),${inputs.rent_increase_rate * 100}`);
-    lines.push(`Market Return (%),${inputs.stock_market_return * 100}`);
-    lines.push(`Savings Account Return (%),${inputs.savings_rate * 100}`);
-    lines.push("");
-
-    // ── Section 2: Year-by-year results
-    lines.push("YEAR-BY-YEAR RESULTS");
-    lines.push("Year,Rent Portfolio,Rent Net Worth,Buy Portfolio,House Equity,Buy Net Worth,Savings Account NW,Cash NW,Delta (Buy - Rent),Winner");
-    for (const r of rows) {
-      lines.push([
-        r.year,
-        Math.round(r.rentPort),
-        Math.round(r.rentNW),
-        Math.round(r.buyPort),
-        Math.round(r.equity),
-        Math.round(r.buyNW),
-        Math.round(r.savingsNW),
-        Math.round(r.cashNW),
-        Math.round(r.delta),
-        r.delta >= 0 ? "Buy" : "Rent"
-      ].join(","));
+function buildInputs() {
+  const el = document.getElementById('inputs');
+  let h = `<div class="presets"><span class="lbl">Starting points (they fill in typical values; adjust from there)</span>${Object.keys(PRESETS).map(k=>`<button class="btn" data-preset="${k}">${k}</button>`).join('')}</div>`;
+  h += `<div class="stay"><div class="row"><label for="years">How long you'll stay</label><output id="yearsOut"></output></div><input type="range" id="years" min="1" max="40" step="1"><div class="f"><div class="hint">The most important question. Buying needs time to pay back its purchase and selling costs.</div></div></div>`;
+  for (const G of GROUPS) {
+    h += `<details class="grp" ${G.open?'open':''}><summary>${G.t}</summary><div class="fields">`;
+    for (const f of FIELDS.filter(f => f.g === G.g)) {
+      h += `<div class="f" id="f-${f.id}"><label for="${f.id}">${f.label}</label><div class="box"><input id="${f.id}" type="number" inputmode="decimal" step="${f.step}"><span class="u">${f.u}</span></div>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
     }
-
-    const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `rent-vs-buy-${inputs.years}yr.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    h += `</div></details>`;
   }
+  h += `<div class="side-actions"><button class="btn" id="resetBtn">Reset to defaults</button></div>`;
+  el.innerHTML = h;
 
-  // ── CHART 1 INIT ─────────────────────────────────────────
-  const ctx = document.getElementById("chart").getContext("2d");
-
-  const rentGrad = ctx.createLinearGradient(0, 0, 0, 280);
-  rentGrad.addColorStop(0, "rgba(77,143,245,0.3)");
-  rentGrad.addColorStop(1, "rgba(77,143,245,0)");
-
-  const buyGrad = ctx.createLinearGradient(0, 0, 0, 280);
-  buyGrad.addColorStop(0, "rgba(232,184,75,0.3)");
-  buyGrad.addColorStop(1, "rgba(232,184,75,0)");
-
-  const chartOpts = (extraDatasets) => ({
-    type: "line",
-    data: { labels: [], datasets: extraDatasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: "#1b1f2c",
-          borderColor: "#242838",
-          borderWidth: 1,
-          titleColor: "#6b7080",
-          bodyColor: "#e8eaf0",
-          padding: 12,
-          callbacks: {
-            label: c => ` ${c.dataset.label}: €${Math.round(c.raw).toLocaleString()}`
-          }
-        }
-      },
-      scales: {
-        x: {
-          grid: { color: "#1b1f2c" },
-          ticks: { color: "#6b7080", font: { family: "'JetBrains Mono'", size: 11 }, callback: v => `Yr ${v+1}` }
-        },
-        y: {
-          grid: { color: "#1b1f2c" },
-          ticks: {
-            color: "#6b7080", font: { family: "'JetBrains Mono'", size: 11 },
-            callback: v => "€" + (v>=1e6 ? (v/1e6).toFixed(1)+"M" : v>=1000 ? (v/1000).toFixed(0)+"k" : v)
-          }
-        }
-      }
-    }
+  el.addEventListener('input', e => {
+    const t = e.target; if (!t.id) return;
+    const v = parseFloat(t.value);
+    if (!Number.isFinite(v)) return;
+    P[t.id] = v;
+    schedule();
   });
+  el.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => { P = {...P, ...PRESETS[b.dataset.preset]}; syncInputs(); schedule(); toast(`Loaded "${b.dataset.preset}". Your other inputs are unchanged.`); });
+  document.getElementById('resetBtn').onclick = () => { P = {...DEF}; syncInputs(); schedule(); };
+}
+function syncInputs() {
+  for (const k of Object.keys(DEF)) { const i = document.getElementById(k); if (i && document.activeElement !== i) i.value = P[k]; }
+}
+function markChanged() {
+  for (const f of FIELDS) document.getElementById('f-'+f.id).classList.toggle('changed', P[f.id] !== DEF[f.id]);
+  document.getElementById('yearsOut').textContent = P.years + (P.years === 1 ? ' year' : ' years');
+}
 
-  let chart = new Chart(ctx, chartOpts([
-    { label:"Rent Net Worth", data:[], borderColor:"#4d8ff5", backgroundColor:rentGrad,
-      borderWidth:2, pointRadius:0, pointHoverRadius:5, fill:true, tension:0.4 },
-    { label:"Buy Net Worth",  data:[], borderColor:"#e8b84b", backgroundColor:buyGrad,
-      borderWidth:2, pointRadius:0, pointHoverRadius:5, fill:true, tension:0.4 },
-    { label:"Savings Account", data:[], borderColor:"#9d4edd", backgroundColor:"transparent",
-      borderWidth:2, pointRadius:0, pointHoverRadius:5, fill:false, tension:0.4, borderDash: [5, 5] },
-    { label:"Cash (Do Nothing)", data:[], borderColor:"#6b7080", backgroundColor:"transparent",
-      borderWidth:2, pointRadius:0, pointHoverRadius:5, fill:false, tension:0.4, borderDash: [2, 4] }
-  ]));
+// ───────────────────────── Model ─────────────────────────
+// Convert UI percentages to decimals once.
+function norm(p) {
+  const q = {...p};
+  for (const k of ['downPct','buyCostPct','rate','appr','maint','sellPct','rentGrowth','ret','fee','gainsTax','inflation','discipline','volS','volH']) q[k] = p[k] / 100;
+  q.years = Math.max(1, Math.min(60, Math.round(p.years)));
+  q.term = Math.max(1, Math.round(p.term));
+  q.downPct = Math.min(1, Math.max(0, q.downPct));
+  return q;
+}
+function mortgagePayment(loan, rate, term) {
+  if (loan <= 0) return 0;
+  const r = rate / 12, n = term * 12;
+  return r === 0 ? loan / n : loan * r / (1 - Math.pow(1 + r, -n));
+}
 
-  // ── CHART 2 INIT ─────────────────────────────────────────
-  const ctx2 = document.getElementById("chart2").getContext("2d");
-
-  const rentPortGrad = ctx2.createLinearGradient(0,0,0,280);
-  rentPortGrad.addColorStop(0,"rgba(77,143,245,0.25)");
-  rentPortGrad.addColorStop(1,"rgba(77,143,245,0.02)");
-
-  const equityGrad = ctx2.createLinearGradient(0,0,0,280);
-  equityGrad.addColorStop(0,"rgba(232,184,75,0.25)");
-  equityGrad.addColorStop(1,"rgba(232,184,75,0.02)");
-
-  const buyPortGrad = ctx2.createLinearGradient(0,0,0,280);
-  buyPortGrad.addColorStop(0,"rgba(63,214,143,0.25)");
-  buyPortGrad.addColorStop(1,"rgba(63,214,143,0.02)");
-
-  let chart2 = new Chart(ctx2, chartOpts([
-    { label:"Rent: Portfolio",    data:[], borderColor:"#4d8ff5", backgroundColor:rentPortGrad,
-      borderWidth:2, pointRadius:0, pointHoverRadius:5, fill:true, tension:0.4, borderDash:[] },
-    { label:"Buy: House Equity",  data:[], borderColor:"#e8b84b", backgroundColor:equityGrad,
-      borderWidth:2, pointRadius:0, pointHoverRadius:5, fill:true, tension:0.4 },
-    { label:"Buy: Portfolio",     data:[], borderColor:"#3fd68f", backgroundColor:buyPortGrad,
-      borderWidth:2, pointRadius:0, pointHoverRadius:5, fill:true, tension:0.4 },
-  ]));
-
-  // ── MATH ──────────────────────────────────────────────────
-  function monthlyMortgagePayment(loan, annualRate, years = 30) {
-    const r = annualRate / 12, n = years * 12;
-    return loan * (r * Math.pow(1+r,n)) / (Math.pow(1+r,n) - 1);
-  }
-
-  function amortizationStep(balance, annualRate, payment) {
-    const r = annualRate / 12;
-    const interest = balance * r;
-    return Math.max(0, balance - (payment - interest));
-  }
-
-  function pct(id) { return (+document.getElementById(id).value) / 100; }
-  function val(id) { return +document.getElementById(id).value; }
-  function fmt(n)  { return "€" + Math.round(n).toLocaleString("en-US"); }
-  function fmtPct(n) { return n.toFixed(1) + "%"; }
-
-  // ── SIMULATION ───────────────────────────────────────────
-  function runCalc() {
-    const c = {
-      years:               val("years"),
-      home_price:          val("home_price"),
-      down_payment_pct:    pct("down_payment_pct"),
-      mortgage_rate:       val("mortgage_rate"),
-      mortgage_term:       val("mortgage_term"),
-      rent_monthly:        val("rent_monthly"),
-      rent_increase_rate:  pct("rent_increase_rate"),
-      home_appreciation:   pct("home_appreciation"),
-      stock_market_return: pct("stock_market_return"),
-      savings_rate:        pct("savings_rate"),
-      maintenance_cost_pct:pct("maintenance_cost_pct"),
-      property_tax_pct:    pct("property_tax_pct"),
-      net_income_monthly:  val("net_income_monthly"),
-      income_annual_raise: val("income_annual_raise"),
-      fixed_buying_costs:  val("fixed_buying_costs"),
-    };
-
-    let income        = c.net_income_monthly;
-    const downPayment = c.home_price * c.down_payment_pct;
-    const loan        = c.home_price - downPayment;
-    const mortgagePayment = monthlyMortgagePayment(loan, c.mortgage_rate, c.mortgage_term);
-    
-    let rent          = c.rent_monthly;
-    let rentInvest    = downPayment + c.fixed_buying_costs;
-    let buyInvest     = 0;
-    let savingsInvest = downPayment + c.fixed_buying_costs;
-    let cashInvest    = downPayment + c.fixed_buying_costs;
-    
-    let loanBalance = loan;
-    let homeValue   = c.home_price;
-    
-    const monthlyReturn        = c.stock_market_return / 12;
-    const monthlySavingsReturn = c.savings_rate / 12;
-    const monthlyTaxMaint = (c.home_price * c.property_tax_pct / 12) +
-                            (c.home_price * c.maintenance_cost_pct / 12);
-
-    const labels = [], rentSeries = [], buySeries = [], savingsSeries = [], cashSeries = [];
-    const rentPortSeries = [], equitySeries = [], buyPortSeries = [];
-    const rows = [];
-    let breakeven = null;
-
-    for (let y = 1; y <= c.years; y++) {
-      for (let m = 0; m < 12; m++) {
-        // After mortgage is paid off, buyer only pays tax + maintenance
-        const mortgageComponent = loanBalance > 0 ? mortgagePayment : 0;
-        const monthlyCostsBuy = mortgageComponent + monthlyTaxMaint;
-
-        rentInvest    = rentInvest * (1 + monthlyReturn) + (income - rent);
-        buyInvest     = buyInvest * (1 + monthlyReturn) + (income - monthlyCostsBuy);
-        savingsInvest = savingsInvest * (1 + monthlySavingsReturn) + (income - rent);
-        cashInvest    = cashInvest + (income - rent);
-        
-        loanBalance = amortizationStep(loanBalance, c.mortgage_rate, mortgagePayment);
+// One path. `shocks` (optional) gives per-year {s, h}: realised stock & home returns.
+// Records year-end "if sold now" net worth for both paths (nominal).
+function simulate(q, shocks, detail) {
+  const down = q.price * q.downPct, loan = q.price - down, closing = q.price * q.buyCostPct;
+  const pmt = mortgagePayment(loan, q.rate, q.term);
+  let rentPort = down + closing, rentBasis = rentPort, buyPort = 0, buyBasis = 0;
+  let home = q.price, bal = loan, rent = q.rent, fixedYr = q.propTax + q.insurance, hoa = q.hoa;
+  const buyNW = new Float64Array(q.years), rentNW = new Float64Array(q.years);
+  const rows = detail ? [] : null;
+  for (let y = 0; y < q.years; y++) {
+    const rs = shocks ? shocks[y].s : q.ret;
+    const rh = shocks ? shocks[y].h : q.appr;
+    const ms = Math.pow(Math.max(0.01, (1 + rs) * (1 - q.fee)), 1/12) - 1;
+    const mh = Math.pow(Math.max(0.01, 1 + rh), 1/12) - 1;
+    let yrInterest = 0, yrOwn = 0, yrRent = 0;
+    for (let m = 0; m < 12; m++) {
+      let pay = 0;
+      if (bal > 0.005) {
+        const interest = bal * q.rate / 12;
+        const principal = Math.min(pmt - interest, bal);
+        bal -= principal; pay = interest + principal; yrInterest += interest;
       }
-
-      homeValue *= (1 + c.home_appreciation);
-      rent      *= (1 + c.rent_increase_rate);
-      income    += c.income_annual_raise / 12;
-
-      const homeEquity = homeValue - loanBalance;
-      const rentNW     = rentInvest;
-      const buyNW      = homeEquity + buyInvest - c.fixed_buying_costs;
-      const delta      = buyNW - rentNW;
-
-      if (breakeven === null && delta >= 0) breakeven = y;
-
-      labels.push(y);
-      rentSeries.push(rentNW);
-      buySeries.push(buyNW);
-      savingsSeries.push(savingsInvest);
-      cashSeries.push(cashInvest);
-      
-      rentPortSeries.push(rentInvest);
-      equitySeries.push(homeEquity);
-      buyPortSeries.push(buyInvest);
-
-      const wClass = delta >= 0 ? "best-buy" : "best-rent";
-      const badge  = delta >= 0
-        ? `<span class="badge badge-buy">BUY</span>`
-        : `<span class="badge badge-rent">RENT</span>`;
-
-      rows.push(`
-        <tr>
-          <td>Year ${y}</td>
-          <td>${fmt(rentInvest)}</td>
-          <td>${fmt(rentNW)}</td>
-          <td>${fmt(buyInvest)}</td>
-          <td>${fmt(homeEquity)}</td>
-          <td class="${wClass}">${fmt(buyNW)}</td>
-          <td>${fmt(savingsInvest)}</td>
-          <td>${fmt(cashInvest)}</td>
-          <td class="${delta >= 0 ? "positive" : "negative"}">${delta >= 0 ? "+" : ""}${fmt(delta)}</td>
-          <td>${badge}</td>
-        </tr>
-      `);
+      const own = pay + home * q.maint / 12 + fixedYr / 12 + hoa;
+      const diff = (own - rent) * q.discipline;
+      rentPort *= 1 + ms; buyPort *= 1 + ms;
+      if (diff > 0) { rentPort += diff; rentBasis += diff; } else { buyPort -= diff; buyBasis -= diff; }
+      yrOwn += own; yrRent += rent;
+      home *= 1 + mh;
     }
-
-    // ── TABLE ────────────────────────────────────────────────
-    const tbody = document.getElementById("tableBody");
-    tbody.innerHTML = rows.join("");
-    tbody.querySelectorAll("tr").forEach((tr, i) =>
-      setTimeout(() => tr.classList.add("visible"), i * 20)
-    );
-
-    // ── CHARTS ───────────────────────────────────────────────
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = rentSeries;
-    chart.data.datasets[1].data = buySeries;
-    chart.data.datasets[2].data = savingsSeries;
-    chart.data.datasets[3].data = cashSeries;
-    chart.update("active");
-
-    chart2.data.labels = labels;
-    chart2.data.datasets[0].data = rentPortSeries;
-    chart2.data.datasets[1].data = equitySeries;
-    chart2.data.datasets[2].data = buyPortSeries;
-    chart2.update("active");
-
-    // ── SUMMARY CARDS ────────────────────────────────────────
-    const finalRent  = rentSeries[rentSeries.length - 1];
-    const finalBuy   = buySeries[buySeries.length - 1];
-    const finalDelta = finalBuy - finalRent;
-    const buyWins    = finalDelta >= 0;
-
-    document.getElementById("cv-rent").textContent  = fmt(finalRent);
-    document.getElementById("cv-buy").textContent   = fmt(finalBuy);
-    document.getElementById("cv-delta").textContent = (finalDelta >= 0 ? "+" : "") + fmt(finalDelta);
-    document.getElementById("cv-breakeven").textContent = breakeven ? `Year ${breakeven}` : "Never";
-    document.getElementById("cs-breakeven").textContent = breakeven
-      ? `buying overtakes after ${breakeven} yr${breakeven > 1 ? "s" : ""}`
-      : "renting wins throughout";
-    document.getElementById("cv-delta").className = "card-value " + (finalDelta >= 0 ? "positive" : "negative");
-
-    ["c-rent","c-buy","c-delta","c-breakeven"].forEach(id =>
-      document.getElementById(id).classList.remove("winner")
-    );
-    document.getElementById(buyWins ? "c-buy" : "c-rent").classList.add("winner");
-
-    const cards = document.querySelectorAll(".card");
-    cards.forEach(c => c.classList.remove("visible"));
-    setTimeout(() => cards.forEach(c => c.classList.add("visible")), 10);
-
-    // ── BREAKDOWN PANEL ──────────────────────────────────────
-    const finalEquity    = equitySeries[equitySeries.length - 1];
-    const finalBuyPort   = buyPortSeries[buyPortSeries.length - 1];
-    const finalRentPort  = rentPortSeries[rentPortSeries.length - 1];
-    const buyGross       = finalEquity + finalBuyPort;
-    const eqPct          = buyGross > 0 ? (finalEquity / buyGross * 100) : 0;
-    const bpPct          = buyGross > 0 ? (finalBuyPort / buyGross * 100) : 0;
-
-    document.getElementById("bd-rent-portfolio").textContent    = fmt(finalRentPort);
-    document.getElementById("bd-rent-portfolio-pct").textContent = " 100%";
-    document.getElementById("bar-rent-portfolio").style.width   = "100%";
-    document.getElementById("bd-rent-total").textContent        = fmt(finalRent);
-
-    document.getElementById("bd-buy-equity").textContent        = fmt(finalEquity);
-    document.getElementById("bd-buy-equity-pct").textContent    = " " + fmtPct(eqPct);
-    document.getElementById("bar-buy-equity").style.width       = eqPct + "%";
-
-    document.getElementById("bd-buy-portfolio").textContent     = fmt(finalBuyPort);
-    document.getElementById("bd-buy-portfolio-pct").textContent = " " + fmtPct(bpPct);
-    document.getElementById("bar-buy-portfolio").style.width    = bpPct + "%";
-
-    document.getElementById("bd-buy-costs").textContent         = "−" + fmt(c.fixed_buying_costs);
-    document.getElementById("bd-buy-total").textContent         = fmt(finalBuy);
-
-    // ── STORE RESULTS FOR EXPORT ─────────────────────────────
-    lastRun = {
-      inputs: { ...c },
-      rows: labels.map((y, i) => ({
-        year:      y,
-        rentPort:  rentPortSeries[i],
-        rentNW:    rentSeries[i],
-        buyPort:   buyPortSeries[i],
-        equity:    equitySeries[i],
-        buyNW:     buySeries[i],
-        savingsNW: savingsSeries[i],
-        cashNW:    cashSeries[i],
-        delta:     buySeries[i] - rentSeries[i],
-      }))
-    };
-    document.getElementById("exportBtn").disabled = false;
+    const tax = (port, basis) => port - q.gainsTax * Math.max(0, port - basis);
+    buyNW[y] = home * (1 - q.sellPct) - bal + tax(buyPort, buyBasis);
+    rentNW[y] = tax(rentPort, rentBasis);
+    if (detail) rows.push({year:y+1, home, bal, buyPort, rentPort, own:yrOwn/12, rent:yrRent/12, interest:yrInterest, buyNW:buyNW[y], rentNW:rentNW[y]});
+    // rent growth partly follows home-price surprises in the stochastic case
+    const rg = q.rentGrowth + (shocks ? 0.5 * (rh - q.appr) : 0);
+    rent *= 1 + Math.max(-0.05, rg);
+    fixedYr *= 1 + q.inflation; hoa *= 1 + q.inflation;
   }
+  return {buyNW, rentNW, rows, pmt, down, closing, loan};
+}
 
-  runCalc();
+// Seeded RNG so results are stable while typing.
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function monteCarlo(q, N = 1000) {
+  const rnd = mulberry32(42), rho = 0.2;
+  const gauss = () => { let u = 0; while (!u) u = rnd(); return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*rnd()); };
+  const muS = Math.log(1 + q.ret) - q.volS*q.volS/2, muH = Math.log(1 + q.appr) - q.volH*q.volH/2;
+  const wins = new Float64Array(q.years);
+  const diffs = Array.from({length:q.years}, () => new Float64Array(N));
+  const shocks = Array.from({length:q.years}, () => ({s:0, h:0}));
+  for (let i = 0; i < N; i++) {
+    for (let y = 0; y < q.years; y++) {
+      const z1 = gauss(), z2 = rho*z1 + Math.sqrt(1-rho*rho)*gauss();
+      shocks[y].s = Math.exp(muS + q.volS*z1) - 1;
+      shocks[y].h = Math.exp(muH + q.volH*z2) - 1;
+    }
+    const r = simulate(q, shocks);
+    for (let y = 0; y < q.years; y++) { const d = r.buyNW[y] - r.rentNW[y]; diffs[y][i] = d; if (d > 0) wins[y]++; }
+  }
+  const pct = (arr, p) => arr[Math.min(arr.length-1, Math.floor(p * arr.length))];
+  const prob = [], p10 = [], p50 = [], p90 = [];
+  for (let y = 0; y < q.years; y++) {
+    const s = diffs[y].sort();
+    prob.push(wins[y] / N); p10.push(pct(s,.1)); p50.push(pct(s,.5)); p90.push(pct(s,.9));
+  }
+  return {prob, p10, p50, p90};
+}
+
+const finalDelta = q => { const r = simulate(q); return r.buyNW[q.years-1] - r.rentNW[q.years-1]; };
+// Find x where finalDelta(q with key=x) crosses 0, within [lo, hi]. Returns null if no sign change.
+function solve(q, key, lo, hi) {
+  const f = x => finalDelta({...q, [key]: x});
+  let flo = f(lo), fhi = f(hi);
+  if (flo === 0) return lo; if (Math.sign(flo) === Math.sign(fhi)) return null;
+  for (let i = 0; i < 60; i++) { const mid = (lo+hi)/2, fm = f(mid); if (Math.sign(fm) === Math.sign(flo)) { lo = mid; flo = fm; } else hi = mid; }
+  return (lo+hi)/2;
+}
+
+// ───────────────────────── Formatting ─────────────────────────
+const eur = n => (n < 0 ? '−€' : '€') + Math.round(Math.abs(n)).toLocaleString('en-US');
+const eurK = n => { const a = Math.abs(n), s = n < 0 ? '−€' : '€'; return a >= 1e6 ? s + (a/1e6).toFixed(a >= 1e7 ? 0 : 2).replace(/\.?0+$/,'') + 'M' : a >= 1e4 ? s + Math.round(a/1e3) + 'k' : a >= 1e3 ? s + (a/1e3).toFixed(1) + 'k' : s + Math.round(a); };
+const pctf = (x, d=1) => (x*100).toFixed(d).replace(/\.0$/,'') + '%';
+const yrs = n => n + (n === 1 ? ' year' : ' years');
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ───────────────────────── Render ─────────────────────────
+let real = true, last = null, charts = {};
+let timer = null;
+function schedule() { clearTimeout(timer); timer = setTimeout(update, 90); }
+
+function update() {
+  markChanged();
+  const q = norm(P);
+  const det = simulate(q, null, true);
+  const mc = monteCarlo(q);
+  const defl = y => real ? Math.pow(1 + q.inflation, y) : 1;
+  const H = q.years, d = det.buyNW[H-1] - det.rentNW[H-1], dR = d / defl(H);
+
+  // break-even year: first year after which buying stays ahead to the horizon
+  let be = null;
+  for (let y = H-1; y >= 0; y--) { if (det.buyNW[y] >= det.rentNW[y]) be = y+1; else break; }
+  const eqRent = solve(q, 'rent', 0, q.rent * 6 + 5000);
+  const prob = mc.prob[H-1];
+  last = {q, det, mc, be, eqRent, d};
+
+  // verdict
+  const v = document.getElementById('verdict');
+  const scale = Math.max(Math.abs(det.rentNW[H-1]), q.price * 0.1);
+  const tie = Math.abs(d) < 0.03 * scale && prob > 0.35 && prob < 0.65;
+  const side = tie ? 'tie' : d > 0 ? 'buy' : 'rent';
+  v.className = 'card verdict ' + side;
+  const unit = real ? "in today's money" : 'in future euros';
+  document.getElementById('vKick').textContent = `If you stay ${yrs(H)}`;
+  document.getElementById('vTitle').textContent = tie ? "It's close to a toss-up" : side === 'buy' ? 'Buying comes out ahead' : 'Renting and investing comes out ahead';
+  const oddsTxt = `Buying wins in <b>${Math.round(prob*100)}%</b> of 1,000 simulated futures.`;
+  let lead;
+  if (tie) lead = `The two paths end within ${eur(Math.abs(dR))} of each other (${unit}). ${oddsTxt} Base the decision on what matters to you beyond money, or on what you expect rents to do.`;
+  else if (side === 'buy') lead = `If your assumptions hold, buying leaves you <b>${eur(dR)}</b> richer after ${yrs(H)} (${unit}). ${oddsTxt}`;
+  else lead = `If your assumptions hold, renting and investing the difference leaves you <b>${eur(-dR)}</b> richer after ${yrs(H)} (${unit}). ${oddsTxt}`;
+  if (eqRent !== null) lead += ` A comparable rent of about <b>${eur(eqRent)}/mo</b> would make the two paths tie. You entered ${eur(q.rent)}.`;
+  document.getElementById('vLead').innerHTML = lead;
+
+  document.getElementById('sDiffK').textContent = d >= 0 ? 'Buying ahead by' : 'Renting ahead by';
+  document.getElementById('sDiff').textContent = eurK(Math.abs(dR));
+  document.getElementById('sDiff').className = 'v ' + (d >= 0 ? 'pos' : 'neg');
+  document.getElementById('sDiffS').textContent = `after ${yrs(H)}, ${real ? "today's €" : 'future €'}`;
+  document.getElementById('sProb').textContent = Math.round(prob*100) + '%';
+  document.getElementById('sProbBar').style.width = (prob*100) + '%';
+  document.getElementById('sBE').textContent = be ? `Year ${be}` : `Not by ${H}`;
+  document.getElementById('sBES').textContent = be ? (be === 1 ? 'ahead from the start' : 'and stays ahead after that') : 'try a longer stay';
+  document.getElementById('sER').textContent = eqRent === null ? '—' : eur(eqRent);
+  document.querySelectorAll('.yrs').forEach(e => e.textContent = yrs(H));
+  document.querySelectorAll('.unitLbl').forEach(e => e.textContent = real ? "today's €" : 'future €');
+
+  renderCharts(q, det, mc, defl);
+  renderFlip(q, d);
+  renderCosts(q, det);
+  renderAfford(q, det);
+  renderTable(q, det, defl);
+  renderPins();
+  writeHash();
+}
+
+function baseOpts(yFmt, yMin, yMax) {
+  const grid = css('--line'), tick = css('--faint');
+  return {
+    responsive:true, maintainAspectRatio:false, animation:{duration:250},
+    interaction:{mode:'index', intersect:false},
+    plugins:{legend:{display:false}, tooltip:{backgroundColor:css('--surface'), titleColor:css('--muted'), bodyColor:css('--text'), borderColor:grid, borderWidth:1, padding:10, titleFont:{family:'system-ui'}, bodyFont:{family:'ui-monospace, Menlo, monospace'}}},
+    scales:{
+      x:{grid:{display:false}, ticks:{color:tick, maxRotation:0, autoSkipPadding:12}, title:{display:true, text:'years from purchase', color:tick, font:{size:11}}},
+      y:{grid:{color:grid}, border:{display:false}, ticks:{color:tick, callback:yFmt}, min:yMin, max:yMax}
+    }
+  };
+}
+function mkChart(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+
+function renderCharts(q, det, mc, defl) {
+  const L = Array.from({length:q.years}, (_, i) => i+1);
+  const buy = css('--buy'), rent = css('--rent'), muted = css('--faint');
+  const fade = (c, a) => { const x = document.createElement('canvas').getContext('2d'); x.fillStyle = c; const h = x.fillStyle; if (h[0] === '#') { const n = parseInt(h.slice(1), 16); return `rgba(${n>>16},${n>>8&255},${n&255},${a})`; } return h; };
+  const D = arr => Array.from(arr, (v, i) => v / defl(i+1));
+
+  const o1 = baseOpts(eurK);
+  o1.plugins.tooltip.callbacks = {title: c => `Sell after year ${c[0].label}`, label: c => ` ${c.dataset.label}: ${eur(c.raw)}`, footer: c => { const d = c[0].raw - c[1].raw; return `${d >= 0 ? 'Buying' : 'Renting'} ahead by ${eur(Math.abs(d))}`; }};
+  o1.plugins.tooltip.footerColor = css('--muted');
+  mkChart('cWealth', {type:'line', data:{labels:L, datasets:[
+    {label:'Buy', data:D(det.buyNW), borderColor:buy, backgroundColor:fade(buy,.08), fill:'origin', borderWidth:2.5, pointRadius:0, pointHoverRadius:4, tension:.25},
+    {label:'Rent & invest', data:D(det.rentNW), borderColor:rent, backgroundColor:'transparent', borderWidth:2.5, pointRadius:0, pointHoverRadius:4, tension:.25},
+  ]}, options:o1});
+
+  const o2 = baseOpts(v => v + '%', 0, 100);
+  o2.plugins.tooltip.callbacks = {title: c => `Sell after year ${c[0].label}`, label: c => ` Buying wins in ${Math.round(c.raw)}% of futures`};
+  o2.plugins.tooltip.filter = i => i.datasetIndex === 0;
+  mkChart('cProb', {type:'line', data:{labels:L, datasets:[
+    {data:mc.prob.map(p => p*100), borderColor:buy, backgroundColor:fade(buy,.12), fill:{target:{value:50}, above:fade(buy,.14), below:fade(rent,.14)}, borderWidth:2.5, pointRadius:0, pointHoverRadius:4, tension:.3},
+    {data:L.map(() => 50), borderColor:muted, borderDash:[4,4], borderWidth:1, pointRadius:0, pointHoverRadius:0},
+  ]}, options:o2});
+
+  const o3 = baseOpts(eurK);
+  const fanNames = ['Optimistic (90th pct)', 'Pessimistic (10th pct)', 'Median'];
+  o3.plugins.tooltip.callbacks = {title: c => `Sell after year ${c[0].label}: buying's lead`, label: c => ` ${fanNames[c.datasetIndex]}: ${eur(c.raw)}`};
+  o3.plugins.tooltip.filter = i => i.datasetIndex < 3;
+  o3.plugins.tooltip.itemSort = (a, b) => b.raw - a.raw;
+  mkChart('cFan', {type:'line', data:{labels:L, datasets:[
+    {data:D(mc.p90), borderColor:'transparent', pointRadius:0, pointHoverRadius:0, fill:false, tension:.3},
+    {data:D(mc.p10), borderColor:'transparent', backgroundColor:fade(buy,.18), pointRadius:0, pointHoverRadius:0, fill:'-1', tension:.3},
+    {data:D(mc.p50), borderColor:buy, borderWidth:2.5, pointRadius:0, pointHoverRadius:4, tension:.3},
+    {data:L.map(() => 0), borderColor:muted, borderDash:[4,4], borderWidth:1, pointRadius:0, pointHoverRadius:0},
+  ]}, options:o3});
+}
+
+function renderFlip(q, d) {
+  const items = [
+    {k:'rent', name:'Rent for a comparable home', lo:0, hi:q.rent*6+5000, fmt:v => eur(v)+'/mo', now:q.rent, dir:'above', why:'The higher the rent you avoid, the better buying looks.'},
+    {k:'appr', name:'Home price growth', lo:-0.1, hi:0.2, fmt:v => pctf(v)+'/yr', now:q.appr, dir:'above', why:'Leverage multiplies appreciation, in both directions.'},
+    {k:'ret', name:'Investment return', lo:-0.1, hi:0.3, fmt:v => pctf(v)+'/yr', now:q.ret, dir:'below', why:'This is what the renter earns on the money they don\'t put into a home.'},
+    {k:'rate', name:'Mortgage rate', lo:0, hi:0.2, fmt:v => pctf(v,2), now:q.rate, dir:'below', why:'Interest is the biggest cost of owning that you never get back.'},
+    {k:'years', name:'How long you stay', fmt:v => yrs(v), now:q.years, dir:'if you stay at least', why:'Purchase and selling costs are spread over more years.'},
+  ];
+  const rows = items.map(it => {
+    let th;
+    if (it.k === 'years') {
+      th = null;
+      for (let y = 1; y <= 40; y++) { const qq = {...q, years:y}; if (finalDelta(qq) >= 0) { th = y; break; } }
+    } else th = solve(q, it.k, it.lo, it.hi);
+    let txt;
+    if (th === null) {
+      const buyWins = d > 0;
+      txt = it.k === 'years' ? 'Buying doesn\'t catch up within 40 years' : buyWins ? 'Buying wins across any realistic value' : 'Renting wins across any realistic value';
+    } else txt = `Buying wins ${it.dir} <b class="th">${it.fmt(th)}</b>`;
+    return `<tr><td>${it.name}<div class="why">${it.why}</div></td><td class="now">now ${it.fmt(it.now)}</td><td style="text-align:right">${txt}</td></tr>`;
+  });
+  document.getElementById('flip').innerHTML = rows.join('');
+}
+
+// Average "user cost" of owning per month over the stay, in today's €:
+// money that's gone (interest, upkeep, taxes, fees, transaction costs) plus the return your equity
+// could have earned invested, minus what the home gains in value.
+function renderCosts(q, det) {
+  const H = q.years, r = ((1 + q.ret) * (1 - q.fee) - 1) * (1 - q.gainsTax);
+  const sellCost = det.rows[H-1].home * q.sellPct;
+  const txYr = r > 0 ? det.closing * r / (1 - Math.pow(1 + r, -H)) + sellCost * r / (Math.pow(1 + r, H) - 1) : (det.closing + sellCost) / H;
+  const acc = {interest:0, maint:0, fixed:0, hoa:0, opp:0, tx:0, gain:0, rent:0};
+  let homePrev = q.price, balPrev = det.loan, fixed = q.propTax + q.insurance, hoa = q.hoa;
+  for (const row of det.rows) {
+    const f = Math.pow(1 + q.inflation, row.year - 0.5) * 12 * H; // mid-year deflator, monthly average
+    acc.interest += row.interest / f;
+    acc.maint += (homePrev + row.home) / 2 * q.maint / f;
+    acc.fixed += fixed / f; acc.hoa += hoa * 12 / f;
+    acc.opp += (homePrev - balPrev) * r / f;
+    acc.tx += txYr / f;
+    acc.gain -= (row.home - homePrev) / f;
+    acc.rent += row.rent * 12 / f;
+    homePrev = row.home; balPrev = row.bal; fixed *= 1 + q.inflation; hoa *= 1 + q.inflation;
+  }
+  const items = [
+    ['Mortgage interest', acc.interest],
+    ['Maintenance', acc.maint],
+    ['Property tax & insurance', acc.fixed],
+    ['Building fees', acc.hoa],
+    ['Lost return on your equity', acc.opp],
+    ['Purchase & selling costs', acc.tx],
+    ['Home price growth', acc.gain],
+  ].filter(([, v]) => Math.abs(v) >= 0.5);
+  const total = items.reduce((s, [, v]) => s + v, 0);
+  const avgRent = acc.rent;
+  const max = Math.max(...items.map(([, v]) => Math.abs(v)), total, avgRent);
+  const buy = 'var(--buy)', rent = 'var(--rent)';
+  let h = items.map(([n, v]) => `<div class="crow"><div><div class="n">${n}</div><div class="bar"><i style="width:${Math.abs(v)/max*100}%;background:${v < 0 ? 'var(--ok)' : buy};opacity:.75"></i></div></div><div class="val">${v < 0 ? '−' : ''}${eur(Math.abs(v))}</div></div>`).join('');
+  h += `<div class="crow total"><div><div class="n">True cost of owning</div><div class="bar"><i style="width:${Math.max(0,total)/max*100}%;background:${buy}"></i></div></div><div class="val">${eur(total)}</div></div>`;
+  h += `<div class="crow total" style="border-top:0;padding-top:0"><div><div class="n">Rent (average)</div><div class="bar"><i style="width:${avgRent/max*100}%;background:${rent}"></i></div></div><div class="val">${eur(avgRent)}</div></div>`;
+  document.getElementById('costs').innerHTML = h;
+  const gap = total - avgRent;
+  document.getElementById('costNote').innerHTML = (Math.abs(gap) < 30
+    ? `Over your stay, owning and renting cost about the same per month.`
+    : gap > 0
+      ? `Over your stay, owning costs about <b>${eur(gap)}/mo more</b> than renting.`
+      : `Over your stay, owning is about <b>${eur(-gap)}/mo cheaper</b> than renting.`)
+    + ` The biggest unrecoverable cost here is ${items.filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])[0][0].toLowerCase()}. This breakdown is an approximation. The verdict above comes from the full month-by-month simulation.`;
+}
+
+function renderAfford(q, det) {
+  const y1 = det.rows[0];
+  const ownCash = y1.own, upfront = det.down + det.closing;
+  const ratio = q.income > 0 ? det.pmt / q.income : null;
+  const ltv = det.loan / q.price;
+  document.getElementById('afford').innerHTML = `
+    <span class="muted">Cash needed at purchase</span><span class="v">${eur(upfront)}</span>
+    <span class="muted">&nbsp;&nbsp;down payment</span><span class="v">${eur(det.down)}</span>
+    <span class="muted">&nbsp;&nbsp;purchase costs</span><span class="v">${eur(det.closing)}</span>
+    <span class="muted">Mortgage</span><span class="v">${eur(det.loan)}</span>
+    <span class="muted">Monthly mortgage payment</span><span class="v">${eur(det.pmt)}</span>
+    <span class="muted">All-in monthly cost of owning, year 1</span><span class="v">${eur(ownCash)}</span>
+    <span class="muted">Monthly rent, year 1</span><span class="v">${eur(q.rent)}</span>
+    ${ratio !== null ? `<span class="muted">Mortgage payment as share of income</span><span class="v">${pctf(ratio)}</span>` : ''}`;
+  const notes = [];
+  if (ratio !== null && ratio > 0.4) notes.push(`A payment of ${pctf(ratio,0)} of net income is above what most Belgian banks accept, which is roughly one-third. Expect pushback or a request for a bigger down payment.`);
+  else if (ratio !== null && ratio > 0.33) notes.push(`At ${pctf(ratio,0)} of net income, the payment is near the usual one-third limit. Doable, but tight.`);
+  if (ltv > 0.9) notes.push(`Borrowing ${pctf(ltv,0)} of the price is more than Belgian lending guidelines allow for most buyers (the cap is 90%).`);
+  const n = document.getElementById('affordNote');
+  n.className = 'note' + (notes.length ? ' warn' : '');
+  n.innerHTML = notes.length ? notes.join(' ') : (ratio !== null ? `The mortgage payment is ${pctf(ratio,0)} of net income, comfortably within the usual one-third guideline.` : 'Add your income under "You" to check affordability.');
+}
+
+function renderTable(q, det, defl) {
+  let h = `<thead><tr><th>Year</th><th>Home value</th><th>Mortgage left</th><th>Owning /mo</th><th>Rent /mo</th><th>Buy: investments</th><th>Rent: investments</th><th>Buy net worth</th><th>Rent net worth</th><th>Difference</th></tr></thead><tbody>`;
+  for (const r of det.rows) {
+    const f = defl(r.year), d = (r.buyNW - r.rentNW) / f;
+    h += `<tr${r.year === last.be ? ' class="mark" title="Buying pulls ahead"' : ''}><td>${r.year}</td><td>${eur(r.home/f)}</td><td>${eur(r.bal/f)}</td><td>${eur(r.own/f)}</td><td>${eur(r.rent/f)}</td><td>${eur(r.buyPort/f)}</td><td>${eur(r.rentPort/f)}</td><td>${eur(r.buyNW/f)}</td><td>${eur(r.rentNW/f)}</td><td class="${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '+' : ''}${eur(d)}</td></tr>`;
+  }
+  document.getElementById('table').innerHTML = h + '</tbody>';
+}
+
+function downloadCSV() {
+  const {q, det} = last;
+  const lines = ['Rent or Buy, year by year (nominal euros)', '', 'Input,Value', ...Object.keys(DEF).map(k => `${k},${P[k]}`), '',
+    'Year,Home value,Mortgage left,Owning per month,Rent per month,Buy investments,Rent investments,Buy net worth,Rent net worth,Difference (buy - rent)'];
+  for (const r of det.rows) lines.push([r.year, r.home, r.bal, r.own, r.rent, r.buyPort, r.rentPort, r.buyNW, r.rentNW, r.buyNW - r.rentNW].map(v => Math.round(v)).join(','));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\r\n')], {type:'text/csv'}));
+  a.download = `rent-or-buy-${q.years}y.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ───────────────────────── Pins ─────────────────────────
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+let pins = store.get('rvb.pins', []);
+function pinSummary(p) {
+  const q = norm(p), r = simulate(q), H = q.years;
+  const d = (r.buyNW[H-1] - r.rentNW[H-1]) / Math.pow(1 + q.inflation, H);
+  let be = null; for (let y = H-1; y >= 0; y--) { if (r.buyNW[y] >= r.rentNW[y]) be = y+1; else break; }
+  return {d, be, prob: monteCarlo(q).prob[H-1], eq: solve(q, 'rent', 0, q.rent*6+5000)};
+}
+function renderPins() {
+  const el = document.getElementById('pins');
+  if (!pins.length) { el.innerHTML = `<p class="sub" style="margin:4px 0 0">No pinned scenarios yet. Tip: click <b>City apartment</b>, pin it, then click <b>Family house</b> to compare the two.</p>`; return; }
+  const cur = JSON.stringify(P);
+  el.innerHTML = `<table class="pins" style="width:100%;border-collapse:collapse;min-width:620px"><thead><tr><th>Scenario</th><th>Price</th><th>Rent</th><th>Stay</th><th>Buying vs renting*</th><th>Buy wins</th><th>Pulls ahead</th><th>Break-even rent</th><th></th></tr></thead><tbody>${pins.map((p, i) => {
+    const s = pinSummary(p.params);
+    const isCur = JSON.stringify(p.params) === cur;
+    return `<tr${isCur ? ' style="background:var(--surface-2)"' : ''}><td><button class="load" data-load="${i}" title="Load these inputs">${p.name}</button></td><td>${eurK(p.params.price)}</td><td>${eur(p.params.rent)}</td><td>${p.params.years}y</td><td class="${s.d >= 0 ? 'pos' : 'neg'}">${s.d >= 0 ? '+' : ''}${eurK(s.d)}</td><td>${Math.round(s.prob*100)}%</td><td>${s.be ? 'yr ' + s.be : '—'}</td><td>${s.eq === null ? '—' : eur(s.eq)}</td><td><button class="x" data-del="${i}" title="Remove">×</button></td></tr>`;
+  }).join('')}</tbody></table><p class="sub" style="margin:8px 0 0;font-size:12px">* Buy net worth minus rent net worth at the end of the stay, in today's €. Click a name to load its inputs.</p>`;
+  el.querySelectorAll('[data-load]').forEach(b => b.onclick = () => { P = {...DEF, ...pins[b.dataset.load].params}; syncInputs(); update(); });
+  el.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { pins.splice(+b.dataset.del, 1); store.set('rvb.pins', pins); renderPins(); });
+}
+function pinCurrent() {
+  const preset = Object.keys(PRESETS).find(k => Object.entries(PRESETS[k]).every(([kk, v]) => P[kk] === v));
+  const name = `${preset ? preset + ' · ' : ''}${eurK(P.price)}, ${P.years}y`;
+  pins.push({name, params:{...P}}); if (pins.length > 8) pins.shift();
+  store.set('rvb.pins', pins); renderPins(); toast('Pinned. Now change something and compare.');
+}
+
+// ───────────────────────── URL state, theme, misc ─────────────────────────
+function writeHash() {
+  const s = new URLSearchParams();
+  for (const k of Object.keys(DEF)) if (P[k] !== DEF[k]) s.set(k, P[k]);
+  if (!real) s.set('nominal', 1);
+  const h = s.toString();
+  history.replaceState(null, '', h ? '#' + h : location.pathname + location.search);
+}
+function readHash() {
+  const s = new URLSearchParams(location.hash.slice(1));
+  for (const k of Object.keys(DEF)) { const v = parseFloat(s.get(k)); if (Number.isFinite(v)) P[k] = v; }
+  if (s.get('nominal')) real = false;
+}
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
+
+(function init() {
+  const th = store.get('rvb.theme', null);
+  if (th) document.documentElement.dataset.theme = th;
+  document.getElementById('themeBtn').onclick = () => {
+    const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = dark ? 'light' : 'dark'; store.set('rvb.theme', dark ? 'light' : 'dark'); update();
+  };
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => update());
+  readHash();
+  buildInputs(); syncInputs();
+  document.querySelectorAll('#realSeg button').forEach(b => { b.classList.toggle('on', (b.dataset.v === '1') === real); b.onclick = () => { real = b.dataset.v === '1'; document.querySelectorAll('#realSeg button').forEach(x => x.classList.toggle('on', x === b)); update(); }; });
+  document.getElementById('csvBtn').onclick = downloadCSV;
+  document.getElementById('pinBtn').onclick = pinCurrent;
+  document.getElementById('shareBtn').onclick = async () => { try { await navigator.clipboard.writeText(location.href); toast('Link copied, with your inputs.'); } catch { toast('Copy the URL from the address bar.'); } };
+  update();
+})();
 </script>
 </body>
 </html>
