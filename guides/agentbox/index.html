@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agentbox</title>
+<meta name="description" content="Run coding agents in a container that only sees placeholder tokens; a small proxy injects the real GitLab, GitHub, GCP and Anthropic credentials for allowed hosts only.">
+<link rel="canonical" href="https://jradhima.github.io/guides/agentbox/index.html">
+<style>
+:root{--bg:#fbfaf7;--surface:#fff;--surface-2:#f3f1ec;--text:#1d1c1a;--muted:#5f5c55;--line:#e2ded5;--accent:#b4532a;--accent-soft:#f6e6dc;--ok:#2f6b45;--ok-soft:#e1efe5;--warn:#8a5a00;--warn-soft:#f7edd6;--bad:#9c2f2f;--bad-soft:#f6e0e0;--code-bg:#f4f2ed;--code-text:#2a2824;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;--serif:"Iowan Old Style","Charter",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}}
+:root[data-theme="dark"]{--bg:#161513;--surface:#1e1d1a;--surface-2:#262420;--text:#ebe8e1;--muted:#a6a197;--line:#36332d;--accent:#e8835a;--accent-soft:#3a2519;--ok:#7cc396;--ok-soft:#1c2e22;--warn:#e0b660;--warn-soft:#33290f;--bad:#e88b8b;--bad-soft:#3a1c1c;--code-bg:#1b1a17;--code-text:#e3dfd6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans)}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:780px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.topbar .home{font-family:var(--serif);font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap}
+.topbar .sp{flex:1}
+.topbar details{position:relative}
+.topbar summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 10px;background:var(--surface)}
+.topbar summary::-webkit-details-marker{display:none}
+.topbar .menu{position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.topbar .menu a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.topbar .menu a:hover{background:var(--surface-2)}
+.topbar .menu a.cur{color:var(--accent);font-weight:600}
+.topbar .menu .n{display:inline-block;width:26px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.themebtn{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer}
+main{max-width:780px;margin:0 auto;padding:40px 20px 100px}
+.kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--serif);font-size:42px;line-height:1.12;margin:10px 0 12px;font-weight:600;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.2;margin:60px 0 6px;font-weight:600;scroll-margin-top:70px}
+h3{font-size:18px;margin:30px 0 6px;scroll-margin-top:70px}
+h4{font-size:13px;margin:20px 0 4px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:10px 0 14px}
+.lede{font-size:19px;color:var(--muted)}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);color:var(--code-text);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font:13px/1.55 var(--mono);margin:14px 0 18px}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+pre .c{color:var(--muted);font-style:italic}
+pre .k{color:var(--accent)}
+pre b{color:var(--accent);font-weight:600}
+.cap{font-size:12px;color:var(--muted);font-family:var(--mono);margin:16px 0 -8px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:14px 0 20px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid var(--line);background:var(--surface)}
+.callout b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.callout.why{background:var(--accent-soft);border-color:transparent}.callout.why b.t{color:var(--accent)}
+.callout.gotcha{background:var(--warn-soft);border-color:transparent}.callout.gotcha b.t{color:var(--warn)}
+.callout.ok{background:var(--ok-soft);border-color:transparent}.callout.ok b.t{color:var(--ok)}
+.callout.bad{background:var(--bad-soft);border-color:transparent}.callout.bad b.t{color:var(--bad)}
+.callout p:first-of-type{margin-top:0}.callout p:last-child,.callout ul:last-child,.callout ol:last-child{margin-bottom:0}
+.oneminute{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.oneminute b.t{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px}
+.oneminute p:last-child{margin-bottom:0}.oneminute p:first-of-type{margin-top:0}
+ol.steps{list-style:none;counter-reset:st;padding:0;margin:16px 0 20px}
+ol.steps>li{counter-increment:st;position:relative;padding:2px 0 12px 42px;border-left:2px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent}
+ol.steps>li::before{content:counter(st);position:absolute;left:-14px;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font:600 13px/26px var(--sans);text-align:center}
+ol.steps pre{margin:8px 0 4px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0;font-size:13.5px}
+.flow .b{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:12.5px}
+.flow .b.hl{border-color:var(--accent);color:var(--accent)}
+.flow .ar{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 4px;color:var(--text);text-transform:none;letter-spacing:0;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+a.card{text-decoration:none;color:inherit;display:block}
+a.card:hover{border-color:var(--accent)}
+.spec{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 18px 10px;margin:18px 0}
+.spec>b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 2px}
+.spec ul{margin:6px 0 10px;padding-left:20px}
+ul.tight li,ol.tight li{margin:3px 0}
+.check{margin:28px 0 0}
+details.q{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 16px;margin:10px 0}
+details.q summary{cursor:pointer;font-weight:600}
+details.q[open] summary{margin-bottom:6px}
+details.q p:last-child{margin-bottom:4px}
+.nextprev{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:70px;padding-top:24px;border-top:1px solid var(--line)}
+.nextprev a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-decoration:none;color:var(--text);background:var(--surface)}
+.nextprev a:hover{border-color:var(--accent)}
+.nextprev small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.nextprev .nx{text-align:right;grid-column:2}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:4px}
+.stack{margin:22px 0;display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:160px 1fr 120px;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14.5px;text-decoration:none;color:var(--text)}
+.layer:hover{border-color:var(--accent)}
+.layer .n{font-weight:600}.layer .d{color:var(--muted)}.layer .c{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+@media (max-width:680px){h1{font-size:32px}h2{font-size:24px}.grid2{grid-template-columns:1fr}.layer{grid-template-columns:1fr;gap:2px}.layer .c{text-align:left}.nextprev{grid-template-columns:1fr}.nextprev .nx{grid-column:1}.topbar .home span{display:none}}
+
+.fig{margin:22px 0 26px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:14px 14px 10px;overflow-x:auto}
+.fig svg{display:block;width:100%;min-width:620px;height:auto}
+.fig figcaption{font-size:13px;color:var(--muted);margin-top:8px}
+.fig text{font-family:var(--sans);fill:var(--text)}
+.fig .lbl{font-size:11px;letter-spacing:.09em;font-weight:600;fill:var(--muted)}
+.fig .lbl.acc{fill:var(--accent)}
+.fig .h{font-size:14px;font-weight:600}
+.fig .t{font-size:12.5px;fill:var(--muted)}
+.fig .s{font-size:12px;fill:var(--muted)}
+.fig .m{font-family:var(--mono);font-size:11.5px}
+.fig .c{text-anchor:middle}
+.fig .ok{fill:var(--ok)}.fig .bad{fill:var(--bad)}
+.fig .x{font-size:20px;fill:var(--bad);font-weight:700}
+.fig .n{font-size:12px;font-weight:700;fill:#fff;text-anchor:middle}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="in">
+<a class="home" href="../index.html">◆ <span>Agentic experiments</span></a>
+<div class="sp"></div>
+<details><summary>Contents ▾</summary><div class="menu">
+<a href="#problem"><span class="n">01</span>The problem</a>
+<a href="#design"><span class="n">02</span>The design</a>
+<a href="#request"><span class="n">03</span>One request, step by step</a>
+<a href="#decisions"><span class="n">04</span>Why it looks like this</a>
+<a href="#testing"><span class="n">05</span>How it was tested</a>
+<a href="#broke"><span class="n">06</span>What broke</a>
+<a href="#limits"><span class="n">07</span>Limits and cheap wins</a>
+</div></details>
+<button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
+</div></div>
+<main>
+<div class="kicker">Experiment · November 2026</div>
+<h1>agentbox: agents that never see your credentials</h1>
+<p class="lede">A coding agent that runs <code>gcloud</code> and <code>glab</code> on your behalf is useful, and a liability: anything that can run <code>env</code> can read your tokens. This experiment keeps bash and the internet, but takes the real credentials out of the agent's reach.</p>
+
+<div class="oneminute"><b class="t">TL;DR</b>
+<p>The agent runs in a container that only sees <b>fake placeholder tokens</b>, on a network with no route out. Its only exit is a small proxy that swaps in the real GitLab, GitHub, GCP or Anthropic token, and only for the hosts that token belongs to. CLIs work unchanged. GCP only ever gets 1-hour access tokens. It was tested on Docker, Podman and gVisor on x86_64 Linux. The whole thing is about 450 lines.</p>
+</div>
+
+<h2 id="problem">The problem</h2>
+<p>At work we use GCP workstations with our own credentials (<code>gcloud auth login</code>, ADC) and a long-lived GitLab token. Giving an agent skills to drive those CLIs is very productive. But the agent is unsandboxed, so a malicious skill or a prompt injection can simply read the tokens:</p>
+<div class="grid2">
+<div class="card"><h4>GitLab token</h4><p>Long-lived. Whoever has it can push code or rewrite CI pipelines to exfiltrate secrets.</p></div>
+<div class="card"><h4>gcloud refresh token</h4><p>Access tokens last an hour, but <code>~/.config/gcloud</code> holds a refresh token that lasts until revoked.</p></div>
+<div class="card"><h4>Metadata server</h4><p>On a GCP VM, <code>169.254.169.254</code> hands any process the machine's service-account token.</p></div>
+<div class="card"><h4>Blocking everything</h4><p>Taking away bash or the internet makes the agent useless. That's not an option.</p></div>
+</div>
+<p>So the goal is narrow and concrete: <b>the agent can use the credentials, but can't take them.</b></p>
+
+<h2 id="design">The design</h2>
+<p>Two containers per session. The agent sits inside a network perimeter with no route out. The proxy straddles that perimeter: it is the only door, and the only place real tokens exist.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 760 430" role="img" aria-label="Architecture: agent container inside an internal network, proxy as the only exit, real tokens only on the host side">
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+<marker id="ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+<marker id="arb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/></marker>
+</defs>
+<!-- host perimeter -->
+<rect x="10" y="10" width="470" height="410" rx="14" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="26" y="34" class="lbl">YOUR WORKSTATION</text>
+<!-- internal network perimeter -->
+<rect x="30" y="52" width="300" height="230" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="46" y="74" class="lbl acc">INTERNAL NETWORK · NO ROUTE OUT</text>
+<!-- agent -->
+<rect x="50" y="90" width="200" height="170" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+<text x="66" y="116" class="h">agent container</text>
+<text x="66" y="140" class="t">pi · opencode · claude · git</text>
+<text x="66" y="160" class="t">gcloud · bq · glab · curl</text>
+<rect x="62" y="174" width="176" height="28" rx="6" fill="var(--surface-2)"/>
+<text x="72" y="193" class="m">GITLAB_TOKEN=agentbox-…</text>
+<text x="66" y="224" class="t">your repo at /workspace</text>
+<text x="66" y="244" class="t">runs as your UID, no caps</text>
+<!-- proxy straddling perimeter -->
+<rect x="282" y="120" width="150" height="110" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+<text x="298" y="146" class="h">proxy</text>
+<text x="298" y="168" class="t">mitmproxy + inject.py</text>
+<text x="298" y="188" class="t">allowlist · swap</text>
+<text x="298" y="208" class="t">block · re-mask</text>
+<!-- agent -> proxy -->
+<line x1="250" y1="175" x2="280" y2="175" stroke="var(--accent)" stroke-width="2" marker-end="url(#ara)"/>
+<!-- secrets on host -->
+<rect x="282" y="320" width="180" height="82" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+<text x="298" y="344" class="h">real tokens</text>
+<text x="298" y="364" class="m">~/.config/agentbox/*</text>
+<text x="298" y="384" class="m">~/.config/gcloud (ADC)</text>
+<line x1="357" y1="318" x2="357" y2="234" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+<text x="364" y="282" class="s">read-only, proxy only</text>
+<!-- direct egress blocked -->
+<line x1="150" y1="262" x2="150" y2="318" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="4 4"/>
+<text x="138" y="336" class="x">✕</text>
+<text x="60" y="356" class="s">no direct route to the internet,</text>
+<text x="60" y="372" class="s">the host or the metadata server</text>
+<!-- internet side -->
+<text x="520" y="34" class="lbl">INTERNET</text>
+<rect x="520" y="52" width="230" height="56" rx="10" fill="var(--ok-soft)" stroke="var(--ok)"/>
+<text x="536" y="75" class="h">gitlab.example.com</text>
+<text x="536" y="95" class="s ok">real token injected</text>
+<rect x="520" y="122" width="230" height="56" rx="10" fill="var(--ok-soft)" stroke="var(--ok)"/>
+<text x="536" y="145" class="h">*.googleapis.com</text>
+<text x="536" y="165" class="s ok">1-hour token from your ADC</text>
+<rect x="520" y="192" width="230" height="56" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+<text x="536" y="215" class="h">any other host</text>
+<text x="536" y="235" class="s">allowed, but never gets a token</text>
+<rect x="520" y="262" width="230" height="56" rx="10" fill="var(--bad-soft)" stroke="var(--bad)"/>
+<text x="536" y="285" class="h">169.254.169.254 · 10.x</text>
+<text x="536" y="305" class="s bad">blocked (403)</text>
+<!-- proxy -> internet -->
+<path d="M432,150 C480,150 480,80 518,80" fill="none" stroke="var(--ok)" stroke-width="1.8" marker-end="url(#ar)"/>
+<path d="M432,165 C485,165 485,150 518,150" fill="none" stroke="var(--ok)" stroke-width="1.8" marker-end="url(#ar)"/>
+<path d="M432,190 C485,190 485,220 518,220" fill="none" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M432,210 C470,210 470,290 518,290" fill="none" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arb)"/>
+</svg>
+<figcaption>The agent's only door is the proxy. Real tokens live on the host side and are mounted read-only into the proxy only.</figcaption>
+</figure>
+
+<pre><code><span class="c"># ~/.config/agentbox/proxy.yaml: the whole configuration</span>
+allow_hosts: ["*"]                 <span class="c"># keep the internet open</span>
+secrets:
+  GITLAB_TOKEN:
+    hosts: ["gitlab.example.com"]
+    file: gitlab-token
+    git: true                      <span class="c"># git push/pull over HTTPS just works</span>
+  GCP_TOKEN:
+    hosts: ["*.googleapis.com"]
+    gcp_adc: true                  <span class="c"># 1-hour tokens, refreshed by the proxy</span></code></pre>
+<p>Starting a session is one command in your repo: <code>agentbox pi</code>, <code>agentbox claude</code> or <code>agentbox bash</code>. Both containers are created fresh and deleted on exit.</p>
+
+<h2 id="request">One request, step by step</h2>
+<p>What happens when the agent runs <code>glab mr list</code>, and when something tries to send the token somewhere else:</p>
+
+<figure class="fig">
+<svg viewBox="0 0 760 400" role="img" aria-label="Sequence: agent sends placeholder, proxy swaps it for the real token for the allowed host, re-masks the response; a placeholder sent to another host is blocked">
+<defs>
+<marker id="sq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text)"/></marker>
+<marker id="sqb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/></marker>
+</defs>
+<rect x="40" y="16" width="160" height="40" rx="8" fill="var(--surface)" stroke="var(--line)"/><text x="120" y="41" class="h c">agent</text>
+<rect x="300" y="16" width="160" height="40" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/><text x="380" y="41" class="h c">proxy</text>
+<rect x="560" y="16" width="160" height="40" rx="8" fill="var(--surface)" stroke="var(--line)"/><text x="640" y="41" class="h c">gitlab.example.com</text>
+<line x1="120" y1="56" x2="120" y2="388" stroke="var(--line)" stroke-dasharray="3 4"/>
+<line x1="380" y1="56" x2="380" y2="388" stroke="var(--line)" stroke-dasharray="3 4"/>
+<line x1="640" y1="56" x2="640" y2="388" stroke="var(--line)" stroke-dasharray="3 4"/>
+<!-- 1 -->
+<circle cx="24" cy="92" r="11" fill="var(--accent)"/><text x="24" y="96.5" class="n">1</text>
+<line x1="122" y1="96" x2="376" y2="96" stroke="var(--text)" stroke-width="1.5" marker-end="url(#sq)"/>
+<text x="250" y="86" class="m c">Authorization: Bearer agentbox-3f9c…</text>
+<!-- 2 -->
+<circle cx="24" cy="142" r="11" fill="var(--accent)"/><text x="24" y="146.5" class="n">2</text>
+<rect x="300" y="124" width="160" height="38" rx="6" fill="var(--accent-soft)"/>
+<text x="380" y="140" class="s c">host on GITLAB_TOKEN's list?</text>
+<text x="380" y="155" class="s c">yes → swap in real value</text>
+<!-- 3 -->
+<circle cx="24" cy="192" r="11" fill="var(--accent)"/><text x="24" y="196.5" class="n">3</text>
+<line x1="382" y1="196" x2="636" y2="196" stroke="var(--text)" stroke-width="1.5" marker-end="url(#sq)"/>
+<text x="510" y="186" class="m c">Authorization: Bearer glpat-•••• (real)</text>
+<!-- 4 -->
+<circle cx="24" cy="242" r="11" fill="var(--accent)"/><text x="24" y="246.5" class="n">4</text>
+<line x1="636" y1="246" x2="384" y2="246" stroke="var(--text)" stroke-width="1.5" marker-end="url(#sq)"/>
+<text x="510" y="236" class="s c">200 OK (anything echoing the token?)</text>
+<line x1="376" y1="266" x2="124" y2="266" stroke="var(--text)" stroke-width="1.5" marker-end="url(#sq)"/>
+<text x="250" y="284" class="s c">real value re-masked to the placeholder</text>
+<!-- 5 blocked -->
+<circle cx="24" cy="330" r="11" fill="var(--bad)"/><text x="24" y="334.5" class="n">5</text>
+<line x1="122" y1="334" x2="376" y2="334" stroke="var(--bad)" stroke-width="1.5" marker-end="url(#sqb)"/>
+<text x="250" y="324" class="m c">agentbox-3f9c… → evil.example</text>
+<rect x="392" y="316" width="200" height="36" rx="6" fill="var(--bad-soft)"/>
+<text x="492" y="339" class="s c bad">403 blocked, nothing sent upstream</text>
+</svg>
+<figcaption>Swaps happen only in request headers (including git's Basic auth), only for the secret's own hosts. Responses get the reverse swap.</figcaption>
+</figure>
+
+<h2 id="decisions">Why it looks like this</h2>
+<div class="tw"><table>
+<tr><th>Decision</th><th>Why</th></tr>
+<tr><td>Inject at a proxy, not MCP servers per tool</td><td>One mechanism covers every CLI and every agent's own API calls, with no tool code to maintain. An MCP server that can run any gcloud command protects no better against theft.</td></tr>
+<tr><td>Containers, with gVisor optional</td><td>Mature, already on workstations, no nested virtualization. The threat is a tricked agent reading files, not a kernel exploit. gVisor is one flag away if that changes.</td></tr>
+<tr><td>Two containers and a network with no route out</td><td><code>HTTPS_PROXY</code> alone is a suggestion: <code>curl --noproxy '*'</code> ignores it. A separate network makes the proxy the only door, and cuts off the metadata server.</td></tr>
+<tr><td>Swap in headers only</td><td>That's where tokens travel. Swapping in bodies would let the agent write the real token into an issue or gist.</td></tr>
+<tr><td>Re-mask responses</td><td>An allowed host that echoes headers (debug endpoints) would otherwise hand the real token back.</td></tr>
+<tr><td>Proxy blocks private IPs</td><td>The proxy itself can reach the metadata server. Without this check, the agent could ask the proxy to fetch the workstation's token.</td></tr>
+<tr><td>GCP through ADC → 1-hour tokens</td><td>The refresh token never enters the box. <code>gcloud</code> and <code>bq</code> read the placeholder from <code>CLOUDSDK_AUTH_ACCESS_TOKEN_FILE</code>.</td></tr>
+<tr><td>Everything fresh per session</td><td>New network, CA and placeholders every run. The CA's private key never leaves the proxy.</td></tr>
+</table></div>
+
+<h2 id="testing">How it was tested</h2>
+<p>An end-to-end script starts a real session with a throwaway config, runs checks inside the box, then scans everything the agent saw or received for the real secret. Development happened on an arm64 Mac, but the real runs were on an <b>x86_64 Ubuntu VM</b> to match a GCP workstation.</p>
+<div class="flow"><span class="b">random "real" secret</span><span class="ar">→</span><span class="b">throwaway proxy.yaml</span><span class="ar">→</span><span class="b hl">real session</span><span class="ar">→</span><span class="b">checks inside the box</span><span class="ar">→</span><span class="b">leak scan on the host</span></div>
+<div class="tw"><table>
+<tr><th>Check</th><th>Docker</th><th>gVisor</th><th>Podman</th></tr>
+<tr><td>Agent environment holds only placeholders</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Placeholder to another host blocked (header, Basic auth, URL)</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Header-echo endpoint can't leak the real value</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>No direct egress; metadata server and private IPs blocked</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>No real secret anywhere in what the agent saw</td><td>✓</td><td>✓</td><td>✓</td></tr>
+</table></div>
+<p>On top of that, on Docker:</p>
+<ul class="tight">
+<li><b>GitHub:</b> a real token was injected. The API call and a private <code>git clone</code> worked.</li>
+<li><b>GCP and Anthropic:</b> <code>gcloud</code>, <code>bq</code> and Claude Code (Haiku) got <b>fake</b> tokens, and Google and Anthropic answered "invalid credentials". That proves the full path (proxy, TLS trust, client honoring the proxy) without touching a real account.</li>
+</ul>
+
+<h2 id="broke">What broke along the way</h2>
+<p>Every odd-looking line in the final code is there because of one of these. The three worst only showed up on Linux, which is the argument for testing on the real target.</p>
+<div class="tw"><table>
+<tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+<tr><td>Proxy crashed: <code>Permission denied</code> on the config (x86 Linux only)</td><td>Proxy ran as root with all capabilities dropped; root without <code>CAP_DAC_OVERRIDE</code> can't read your <code>chmod 600</code> files. The Mac's file sharing hid it.</td><td>Proxy runs as your UID</td></tr>
+<tr><td><code>Could not resolve proxy</code> (gVisor only)</td><td>gVisor has its own network stack and can't use Docker's built-in DNS.</td><td>Wrapper passes the proxy's IP, not its name</td></tr>
+<tr><td>Podman: can't connect to <code>podman.sock</code></td><td><code>podman compose</code> picked the docker-compose backend because Docker was also installed.</td><td>Call <code>podman-compose</code> directly</td></tr>
+<tr><td>opencode got no answers</td><td>Its free models only serve OpenCode 2 clients; the npm package I'd pinned was version 1.</td><td>Install <code>@opencode/cli</code> v2</td></tr>
+<tr><td>Half the network checks "failed"</td><td>A bug in the test itself: a bash function isn't visible in subshells.</td><td><code>export -f</code></td></tr>
+</table></div>
+
+<h2 id="limits">Limits and cheap wins</h2>
+<div class="callout gotcha"><b class="t">It stops theft, not misuse</b>
+<p>A hijacked agent can still do anything the token allows <i>during the session</i>, and with the internet open it can still send data out. Plain containers also share the host kernel. Those are handled by permissions and by gVisor, not by the proxy.</p>
+</div>
+<div class="grid2">
+<div class="card"><h4>Protect main</h4><p>On important repos the agent opens MRs; on solo repos let it push.</p></div>
+<div class="card"><h4>Protected CI variables</h4><p>Feature-branch pipelines never get deploy secrets, even if the agent edits CI.</p></div>
+<div class="card"><h4>Read-only GCP identity</h4><p>Impersonate a read-only service account for the agent, and do writes yourself.</p></div>
+<div class="card"><h4>Tighten allow_hosts</h4><p>The proxy log shows which hosts are used. It's the only control on exfiltration.</p></div>
+</div>
+
+<div class="callout why"><b class="t">About this section</b>
+<p>Pages under Agentic Experiments are written with AI assistance. The blog itself stays human-written.</p>
+</div>
+<footer>Agentic experiments · November 2026 · <a href="../../index.html">yannis radhima</a></footer>
+</main>
+<script>
+function toggleTheme(){var r=document.documentElement;var d=r.getAttribute('data-theme')?r.getAttribute('data-theme')==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;r.setAttribute('data-theme',d?'light':'dark');try{localStorage.setItem('theme',r.getAttribute('data-theme'))}catch(e){}}
+try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+document.addEventListener('click',function(e){var d=document.querySelector('.topbar details');if(d&&d.open&&!d.contains(e.target))d.open=false});
+</script>
+</body>
+</html>
