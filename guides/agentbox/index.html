@@ -298,7 +298,7 @@ AGENTBOX_GCLOUD=1
 AGENTBOX_MOUNTS="~/.pi/agent/skills:~/.pi/agent/skills"     <span class="c"># read-only</span>
 AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <div class="callout gotcha"><b class="t">Your home directory doesn't come along</b>
-<p>Not your <code>~/.bashrc</code>, not your skills, not your host's tools. That's deliberate, because dotfiles are where tokens hide. You opt in:</p>
+<p>Not your <code>~/.bashrc</code>, not your skills, not your host's tools. That's deliberate, because dotfiles are where tokens hide. The one exception is <b>the folder you start in</b>: it's mounted in full, dotfiles included. So agentbox refuses to start in <code>~</code>, in <code>/</code>, or in any folder that contains your credentials. Everything else, you opt in:</p>
 </div>
 <div class="tw"><table>
 <tr><th>You want in the box</th><th>How</th></tr>
