@@ -116,10 +116,11 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
 <a href="#problem"><span class="n">01</span>The problem</a>
 <a href="#design"><span class="n">02</span>The design</a>
 <a href="#request"><span class="n">03</span>One request, step by step</a>
-<a href="#decisions"><span class="n">04</span>Why it looks like this</a>
-<a href="#testing"><span class="n">05</span>How it was tested</a>
-<a href="#broke"><span class="n">06</span>What broke</a>
-<a href="#limits"><span class="n">07</span>Limits and cheap wins</a>
+<a href="#hiding"><span class="n">04</span>Hiding, then replacing</a>
+<a href="#decisions"><span class="n">05</span>Why it looks like this</a>
+<a href="#testing"><span class="n">06</span>How it was tested</a>
+<a href="#broke"><span class="n">07</span>What broke</a>
+<a href="#limits"><span class="n">08</span>Limits and cheap wins</a>
 </div></details>
 <button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
 </div></div>
@@ -265,6 +266,22 @@ secrets:
 </svg>
 <figcaption>Swaps happen only in request headers (including git's Basic auth), only for the secret's own hosts. Responses get the reverse swap.</figcaption>
 </figure>
+
+<h2 id="hiding">Hiding, then replacing</h2>
+<p>Two layers, and it matters which does what. The first does most of the work. The second only touches strings the proxy made up itself.</p>
+<div class="grid2">
+<div class="card"><h4>1 · Hiding</h4><p>Real secrets are never put in the container. It gets your repo, a read-only folder of placeholders and the proxy's certificate, and nothing else: no home directory, no host env vars, no <code>~/.config/gcloud</code>, no Docker socket.</p></div>
+<div class="card"><h4>2 · Replacing</h4><p>The proxy looks for its own random placeholder strings in outgoing headers and swaps them for the real value, for allowed hosts only. It never scans for real tokens.</p></div>
+</div>
+<div class="callout gotcha"><b class="t">Hiding is only as good as what you mount</b>
+<p>A <code>.env</code> with real keys inside your repo is visible to the agent, and the proxy does nothing about it.</p>
+</div>
+<p><b>The variable name doesn't matter, the value does.</b> <code>GITLAB_TOKEN</code> is just the name the placeholder is exported under. If a tool wants <code>GL_TOKEN</code> or its own config file, put the same placeholder there (<code>export GL_TOKEN=$GITLAB_TOKEN</code>). It still travels in a header and still gets swapped.</p>
+<div class="tw"><table>
+<tr><th>Swappable</th><th>Not swappable</th></tr>
+<tr><td>Bearer tokens, <code>PRIVATE-TOKEN</code>, git's Basic auth: anything sent as-is in a header</td><td>Secrets the client computes with: service-account JSON keys, AWS SigV4, mTLS certs, SSH keys. A placeholder can't produce a valid signature, so use token-based auth (ADC, HTTPS git)</td></tr>
+<tr><td>Tokens read from env vars, config files or token files: they all end up in a header</td><td>Tokens in a body or URL (<code>?private_token=</code>), and non-HTTP protocols</td></tr>
+</table></div>
 
 <h2 id="decisions">Why it looks like this</h2>
 <div class="tw"><table>
