@@ -117,10 +117,11 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
 <a href="#design"><span class="n">02</span>The design</a>
 <a href="#request"><span class="n">03</span>One request, step by step</a>
 <a href="#hiding"><span class="n">04</span>Hiding, then replacing</a>
-<a href="#decisions"><span class="n">05</span>Why it looks like this</a>
-<a href="#testing"><span class="n">06</span>How it was tested</a>
-<a href="#broke"><span class="n">07</span>What broke</a>
-<a href="#limits"><span class="n">08</span>Limits and cheap wins</a>
+<a href="#using"><span class="n">05</span>Using it day to day</a>
+<a href="#decisions"><span class="n">06</span>Why it looks like this</a>
+<a href="#testing"><span class="n">07</span>How it was tested</a>
+<a href="#broke"><span class="n">08</span>What broke</a>
+<a href="#limits"><span class="n">09</span>Limits and cheap wins</a>
 </div></details>
 <button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
 </div></div>
@@ -283,6 +284,31 @@ secrets:
 <tr><td>Tokens read from env vars, config files or token files: they all end up in a header</td><td>Tokens in a body or URL (<code>?private_token=</code>), and non-HTTP protocols</td></tr>
 </table></div>
 
+<h2 id="using">Using it day to day</h2>
+<ol class="steps">
+<li><b>Once:</b> <code>agentbox init</code> creates two files in <code>~/.config/agentbox/</code>: <code>proxy.yaml</code> (hosts and secrets) and <code>agentbox.env</code> (what goes in the image).</li>
+<li><b>Tokens become files.</b> The proxy reads each real value from a file in that folder (or mints GCP tokens from your ADC). It can't see your shell's env vars, so a token exported in <code>~/.bashrc</code> has to be copied into a file. Then point <code>~/.bashrc</code> at the file, so there's one copy.</li>
+<li><b>Choose the image.</b> The default is lean: base tools plus pi. List more agents and packages in <code>agentbox.env</code> and run <code>agentbox build</code>.</li>
+<li><b>Every day:</b> <code>cd</code> into a repo and run <code>agentbox pi</code>, <code>agentbox claude</code> or <code>agentbox bash</code>.</li>
+</ol>
+<pre><code><span class="c"># ~/.config/agentbox/agentbox.env</span>
+AGENTBOX_NPM_PACKAGES="@mariozechner/pi-coding-agent@0.73.1 @anthropic-ai/claude-code@2.1.318"
+AGENTBOX_APT_PACKAGES="postgresql-client"
+AGENTBOX_GCLOUD=1
+AGENTBOX_MOUNTS="~/.pi/agent/skills:~/.pi/agent/skills"     <span class="c"># read-only</span>
+AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
+<div class="callout gotcha"><b class="t">Your home directory doesn't come along</b>
+<p>Not your <code>~/.bashrc</code>, not your skills, not your host's tools. That's deliberate, because dotfiles are where tokens hide. You opt in:</p>
+</div>
+<div class="tw"><table>
+<tr><th>You want in the box</th><th>How</th></tr>
+<tr><td>Your agent's skills or prompts</td><td>Mount them read-only with <code>AGENTBOX_MOUNTS</code>. Never mount a file that holds a key</td></tr>
+<tr><td>Aliases and shell setup</td><td>A small secret-free <code>box.bashrc</code>, mounted as <code>~/.bashrc</code>, plus <code>BASH_ENV</code> so the agent's non-interactive shells read it too</td></tr>
+<tr><td>Plain settings (default project, GitLab host)</td><td><code>AGENTBOX_ENV</code></td></tr>
+<tr><td>Tools like <code>gcloud</code> or <code>psql</code></td><td>Add them to the image in <code>agentbox.env</code></td></tr>
+<tr><td>Existing <code>git@host:</code> clones</td><td>Nothing: SSH remotes are rewritten to HTTPS for hosts marked <code>git: true</code></td></tr>
+</table></div>
+
 <h2 id="decisions">Why it looks like this</h2>
 <div class="tw"><table>
 <tr><th>Decision</th><th>Why</th></tr>
@@ -293,6 +319,8 @@ secrets:
 <tr><td>Re-mask responses</td><td>An allowed host that echoes headers (debug endpoints) would otherwise hand the real token back.</td></tr>
 <tr><td>Proxy blocks private IPs</td><td>The proxy itself can reach the metadata server. Without this check, the agent could ask the proxy to fetch the workstation's token.</td></tr>
 <tr><td>GCP through ADC → 1-hour tokens</td><td>The refresh token never enters the box. <code>gcloud</code> and <code>bq</code> read the placeholder from <code>CLOUDSDK_AUTH_ACCESS_TOKEN_FILE</code>.</td></tr>
+<tr><td>Secrets come from files, not env vars</td><td>The proxy lives in its own container. A <code>chmod 600</code> file is simpler than piping real values through Docker on every run.</td></tr>
+<tr><td>A lean image you configure</td><td>Preinstalling every agent made a big image full of unused tools. One <code>agentbox.env</code> file lists what you want.</td></tr>
 <tr><td>Everything fresh per session</td><td>New network, CA and placeholders every run. The CA's private key never leaves the proxy.</td></tr>
 </table></div>
 
@@ -321,6 +349,7 @@ secrets:
 <tr><td><code>Could not resolve proxy</code> (gVisor only)</td><td>gVisor has its own network stack and can't use Docker's built-in DNS.</td><td>Wrapper passes the proxy's IP, not its name</td></tr>
 <tr><td>Podman: can't connect to <code>podman.sock</code></td><td><code>podman compose</code> picked the docker-compose backend because Docker was also installed.</td><td>Call <code>podman-compose</code> directly</td></tr>
 <tr><td>opencode got no answers</td><td>Its free models only serve OpenCode 2 clients; the npm package I'd pinned was version 1.</td><td>Install <code>@opencode/cli</code> v2</td></tr>
+<tr><td>A mounted <code>~/.bashrc</code> did nothing for the agent</td><td>Agents run tools through non-interactive bash, which skips <code>~/.bashrc</code>.</td><td>Also set <code>BASH_ENV</code></td></tr>
 <tr><td>Half the network checks "failed"</td><td>A bug in the test itself: a bash function isn't visible in subshells.</td><td><code>export -f</code></td></tr>
 </table></div>
 
