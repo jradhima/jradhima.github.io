@@ -289,7 +289,8 @@ secrets:
 <li><b>Once:</b> <code>agentbox init</code> creates two files in <code>~/.config/agentbox/</code>: <code>proxy.yaml</code> (hosts and secrets) and <code>agentbox.env</code> (what goes in the image).</li>
 <li><b>Tokens become files.</b> The proxy reads each real value from a file in that folder (or mints GCP tokens from your ADC). It can't see your shell's env vars, so a token exported in <code>~/.bashrc</code> has to be copied into a file. Then point <code>~/.bashrc</code> at the file, so there's one copy.</li>
 <li><b>Choose the image.</b> The default is lean: base tools plus pi. List more agents and packages in <code>agentbox.env</code> and run <code>agentbox build</code>.</li>
-<li><b>Every day:</b> <code>cd</code> into a repo and run <code>agentbox pi</code>, <code>agentbox opencode</code> or <code>agentbox bash</code>.</li>
+<li><b>Every day:</b> <code>cd</code> into a repo and run <code>agentbox pi</code>, <code>agentbox opencode</code> or <code>agentbox bash</code>. The agent's sessions and settings persist in a box-only home, per project, so <code>agentbox pi --continue</code> works.</li>
+<li><b>Several repos:</b> list repos to have in every session in <code>AGENTBOX_PROJECTS</code> (<code>:ro</code> for read-only), or start in an <i>agent-home</i> folder of links marked with an <code>.agentbox-home</code> file. Either way each repo is mounted at its real path.</li>
 </ol>
 <pre><code><span class="c"># ~/.config/agentbox/agentbox.env</span>
 AGENTBOX_NPM_PACKAGES="@earendil-works/pi-coding-agent@1.5.0 @opencode/cli@2.2.5"
@@ -321,6 +322,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>Proxy blocks private IPs</td><td>The proxy itself can reach the metadata server. Without this check, the agent could ask the proxy to fetch the machine's cloud token.</td></tr>
 <tr><td>GCP through ADC → 1-hour tokens</td><td>The refresh token never enters the box. <code>gcloud</code> and <code>bq</code> read the placeholder from <code>CLOUDSDK_AUTH_ACCESS_TOKEN_FILE</code>.</td></tr>
 <tr><td>Secrets come from files, not env vars</td><td>The proxy lives in its own container. A <code>chmod 600</code> file is simpler than piping real values through Docker on every run.</td></tr>
+<tr><td>A persistent, box-only home</td><td>Sessions matter. The home holds only the agent's own state, never real credentials, so persistence doesn't expose them. The cost, shared state across sessions, is listed under limitations.</td></tr>
 <tr><td>A lean image you configure</td><td>Preinstalling every agent made a big image full of unused tools. One <code>agentbox.env</code> file lists what you want.</td></tr>
 <tr><td>Everything fresh per session</td><td>New network, CA and placeholders every run. The CA's private key never leaves the proxy.</td></tr>
 </table></div>
@@ -336,6 +338,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>No direct egress; metadata server and private IPs blocked</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>Host bridge: only the one allowed host port is reachable</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>pi connects to an MCP server, token injected by the proxy</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Box home persists; agent-home links only with the marker; <code>AGENTBOX_PROJECTS</code> read-write and read-only</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>No real secret anywhere in what the agent saw</td><td>✓</td><td>✓</td><td>✓</td></tr>
 </table></div>
 <p>On top of that, on Docker:</p>
@@ -356,6 +359,8 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>After mounting a pi extension, pi couldn't save anything in <code>~/.pi/agent</code></td><td>The container engine creates a mount's missing parent folders as root.</td><td>Mount elsewhere and symlink it into place as the user</td></tr>
 <tr><td>A mounted <code>~/.bashrc</code> did nothing for the agent</td><td>Agents run tools through non-interactive bash, which skips <code>~/.bashrc</code>.</td><td>Also set <code>BASH_ENV</code></td></tr>
 <tr><td>The docs said pi has no MCP</td><td>The image pinned pi's old npm package, which is deprecated. The new one has built-in MCP.</td><td>Switch packages; test MCP in the box</td></tr>
+<tr><td>Agent sessions were lost on every exit, and would have mixed across projects</td><td>A throwaway home, and every project mounted at the same path.</td><td>Persistent box-only home; projects at their real path</td></tr>
+<tr><td>Following links automatically (first version)</td><td>A cloned repo could pull other folders in through a committed symlink.</td><td>Only follow links in a folder marked <code>.agentbox-home</code></td></tr>
 <tr><td>Half the network checks "failed"</td><td>A bug in the test itself: a bash function isn't visible in subshells.</td><td><code>export -f</code></td></tr>
 </table></div>
 
@@ -369,7 +374,8 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>Misuse during the session</td><td>The token works through the proxy: push, delete, read</td><td>Least-privilege tokens, protected branches, read-only identities</td></tr>
 <tr><td>Data exfiltration</td><td>With the internet open, data can go anywhere; DNS isn't filtered</td><td>A tight <code>allow_hosts</code> list</td></tr>
 <tr><td>Secrets inside the repo</td><td>The workspace is mounted in full, so a <code>.env</code> is visible</td><td>Keep real secrets out of repos</td></tr>
-<tr><td>Logins done inside the box</td><td>An OAuth sign-in in the box stores a real token there</td><td>Give credentials through <code>proxy.yaml</code></td></tr>
+<tr><td>Logins done inside the box</td><td>An OAuth sign-in in the box stores a real token in the box home, where it persists</td><td>Give credentials through <code>proxy.yaml</code></td></tr>
+<tr><td>Persistence across sessions</td><td>The box home is shared, so a hijacked session can leave something for later ones</td><td>Separate homes per trust level; delete to reset; throwaway mode</td></tr>
 <tr><td>Container escapes</td><td>Plain containers share the host kernel</td><td><code>--gvisor</code></td></tr>
 <tr><td>The host itself</td><td>Real tokens live on your machine</td><td>Normal host hygiene</td></tr>
 </table></div>
@@ -382,7 +388,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>Clients that ignore the proxy or CA settings (some gRPC libraries)</td><td>Configure them, or use REST mode</td></tr>
 <tr><td>Stdio MCP servers installed on your machine</td><td>Install them in the box, or run them as HTTP behind the host bridge</td></tr>
 <tr><td>Docker inside the box</td><td>Binary, npm or PyPI releases</td></tr>
-<tr><td>State outside <code>/workspace</code> survives the session</td><td>Write to <code>/workspace</code></td></tr>
+<tr><td>Links deep inside an agent-home's repos</td><td>Link the target at the top level</td></tr>
 </table></div>
 <p><b>Not tested yet:</b> gVisor under Podman, VS Code agents (Kilo, Cline) attached to the box, <code>pi install</code> packages, a real GCP account end to end, Windows hosts.</p>
 <h3>Cheap wins on top</h3>
