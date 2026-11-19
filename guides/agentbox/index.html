@@ -118,10 +118,12 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
 <a href="#request"><span class="n">03</span>One request, step by step</a>
 <a href="#hiding"><span class="n">04</span>Hiding, then replacing</a>
 <a href="#using"><span class="n">05</span>Using it day to day</a>
-<a href="#decisions"><span class="n">06</span>Why it looks like this</a>
-<a href="#testing"><span class="n">07</span>How it was tested</a>
-<a href="#broke"><span class="n">08</span>What broke</a>
-<a href="#limits"><span class="n">09</span>Limitations</a>
+<a href="#repos"><span class="n">06</span>Several repos: a home repo</a>
+<a href="#decisions"><span class="n">07</span>Why it looks like this</a>
+<a href="#testing"><span class="n">08</span>How it was tested</a>
+<a href="#broke"><span class="n">09</span>What broke</a>
+<a href="#limits"><span class="n">10</span>Limitations</a>
+<a href="#compare"><span class="n">11</span>How others do it</a>
 </div></details>
 <button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
 </div></div>
@@ -131,7 +133,7 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
 <p class="lede">A coding agent that runs CLIs with your credentials is useful, and a liability: anything that can run <code>env</code> can read your tokens. This experiment keeps bash and the internet, but takes the real credentials out of the agent's reach. It uses <a href="https://github.com/earendil-works/pi">pi</a> as the main agent and is built from open-source parts.</p>
 
 <div class="oneminute"><b class="t">TL;DR</b>
-<p>The agent runs in a container that only sees <b>fake placeholder tokens</b>, on a network with no route out. Its only exit is a small proxy that swaps in the real GitLab, GitHub, cloud or API token, and only for the hosts that token belongs to. CLIs, pi extensions and MCP servers work unchanged. It stops credential <i>theft</i>, not every kind of misuse, so read the <a href="#limits">limitations</a>. Tested on Docker, Podman and gVisor. About 450 lines on top of Docker or Podman and mitmproxy.</p>
+<p>The agent runs in a container that only sees <b>fake placeholder tokens</b>, on a network with no route out. Its only exit is a small proxy that swaps in the real GitLab, GitHub, cloud or API token, and only for the hosts that token belongs to. CLIs, pi extensions and MCP servers work unchanged. It stops credential <i>theft</i>, not every kind of misuse, so read the <a href="#limits">limitations</a>. Setup is three commands. Tested on Docker, Podman and gVisor. About 850 lines on top of Docker or Podman and mitmproxy.</p>
 </div>
 
 <h2 id="problem">The problem</h2>
@@ -212,11 +214,16 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
 <figcaption>The agent's only door is the proxy. Real tokens live on the host side and are mounted read-only into the proxy only.</figcaption>
 </figure>
 
-<pre><code><span class="c"># ~/.config/agentbox/proxy.yaml: the whole configuration</span>
+<pre><code><span class="c"># the whole setup</span>
+git clone https://github.com/jradhima/agentbox.git ~/agentbox &amp;&amp; export PATH="$HOME/agentbox/bin:$PATH"
+agentbox add claude                <span class="c"># asks for the token (hidden); or anthropic, openai, github, gitlab …</span>
+cd ~/code/my-repo &amp;&amp; agentbox pi   <span class="c"># first run builds the images</span></code></pre>
+<p>Each <code>agentbox add</code> stores one secret: the real value in a <code>chmod 600</code> file, plus the hosts it may go to. Anything more specific goes in an optional <code>proxy.yaml</code>, same format:</p>
+<pre><code><span class="c"># ~/.config/agentbox/proxy.yaml (optional)</span>
 allow_hosts: ["*"]                 <span class="c"># keep the internet open</span>
 secrets:
   GITLAB_TOKEN:
-    hosts: ["gitlab.example.com"]
+    hosts: ["gitlab.example.com/acme/*"]   <span class="c"># this group's repos and API paths only</span>
     file: gitlab-token
     git: true                      <span class="c"># git push/pull over HTTPS just works</span>
   GCP_TOKEN:
@@ -286,30 +293,43 @@ secrets:
 
 <h2 id="using">Using it day to day</h2>
 <ol class="steps">
-<li><b>Once:</b> <code>agentbox init</code> creates two files in <code>~/.config/agentbox/</code>: <code>proxy.yaml</code> (hosts and secrets) and <code>agentbox.env</code> (what goes in the image).</li>
-<li><b>Tokens become files.</b> The proxy reads each real value from a file in that folder (or mints GCP tokens from your ADC). It can't see your shell's env vars, so a token exported in <code>~/.bashrc</code> has to be copied into a file. Then point <code>~/.bashrc</code> at the file, so there's one copy.</li>
-<li><b>Choose the image.</b> The default is lean: base tools plus pi. List more agents and packages in <code>agentbox.env</code> and run <code>agentbox build</code>.</li>
+<li><b>Once per credential:</b> <code>agentbox add &lt;service&gt;</code>. The value comes from a hidden prompt, a pipe, the same variable already in your shell, or <code>gh auth token</code>. Built-in names cover Claude (subscription or API key), OpenAI, OpenRouter, Gemini, GitHub and GitLab; anything else is <code>agentbox add NAME host</code>. The proxy can't see your shell, so this copies the value into its folder.</li>
+<li><b>Your pi setup comes along by itself:</b> extensions, skills, prompts, themes and <code>AGENTS.md</code> from <code>~/.pi/agent</code>, read-only, from a fixed list. <code>settings.json</code> is copied once. <code>auth.json</code>, <code>models.json</code> and <code>mcp.json</code> never enter, since they can hold keys.</li>
+<li><b>The image builds itself:</b> on first use, and again (only what changed) after a <code>git pull</code> or a change to the package list in <code>agentbox.env</code>. The default is lean: base tools plus pi.</li>
 <li><b>Every day:</b> <code>cd</code> into a repo and run <code>agentbox pi</code>, <code>agentbox opencode</code> or <code>agentbox bash</code>. The agent's sessions and settings persist in a box-only home, per project, so <code>agentbox pi --continue</code> works.</li>
-<li><b>Several repos:</b> list repos to have in every session in <code>AGENTBOX_PROJECTS</code> (<code>:ro</code> for read-only), or start in an <i>agent-home</i> folder of links marked with an <code>.agentbox-home</code> file. Either way each repo is mounted at its real path.</li>
+<li><b>Several repos:</b> start in a <a href="#repos">home repo</a> that lists them, or list repos to have in every session in <code>AGENTBOX_PROJECTS</code> (<code>:ro</code> for read-only). Either way each repo is mounted at its real path.</li>
 </ol>
 <pre><code><span class="c"># ~/.config/agentbox/agentbox.env</span>
 AGENTBOX_NPM_PACKAGES="@earendil-works/pi-coding-agent@1.5.0 @opencode/cli@2.2.5"
 AGENTBOX_APT_PACKAGES="postgresql-client"
 AGENTBOX_GCLOUD=1
-AGENTBOX_MOUNTS="~/.pi/agent/skills:~/.pi/agent/skills"     <span class="c"># read-only</span>
+AGENTBOX_MOUNTS="~/notes:~/notes"     <span class="c"># anything else, read-only</span>
 AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <div class="callout gotcha"><b class="t">Your home directory doesn't come along</b>
-<p>Not your <code>~/.bashrc</code>, not your skills, not your host's tools. That's deliberate, because dotfiles are where tokens hide. The one exception is <b>the folder you start in</b>: it's mounted in full, dotfiles included. So agentbox refuses to start in <code>~</code>, in <code>/</code>, or in any folder that contains your credentials. Everything else, you opt in:</p>
+<p>Not your <code>~/.bashrc</code>, not your host's tools, and of your pi setup only the fixed list above. That's deliberate, because dotfiles are where tokens hide. The one exception is <b>the folder you start in</b>: it's mounted in full, dotfiles included. So agentbox refuses to start in <code>~</code>, in <code>/</code>, or in any folder that contains your credentials. Everything else, you opt in:</p>
 </div>
 <div class="tw"><table>
 <tr><th>You want in the box</th><th>How</th></tr>
-<tr><td>Your agent's skills, extensions or prompts</td><td>Mount the folders read-only with <code>AGENTBOX_MOUNTS</code>. Pi extensions load from them, tested. Never mount a folder that holds your login, such as <code>~/.pi/agent</code> itself (it has <code>auth.json</code>)</td></tr>
+<tr><td>Your agent's skills, extensions or prompts</td><td>pi's come along automatically. For other agents or other folders, mount them read-only with <code>AGENTBOX_MOUNTS</code>. Never mount a folder that holds your login, such as <code>~/.pi/agent</code> itself (it has <code>auth.json</code>)</td></tr>
 <tr><td>Aliases and shell setup</td><td>A small secret-free <code>box.bashrc</code>, mounted as <code>~/.bashrc</code>, plus <code>BASH_ENV</code> so the agent's non-interactive shells read it too</td></tr>
 <tr><td>Plain settings (default project, GitLab host)</td><td><code>AGENTBOX_ENV</code></td></tr>
 <tr><td>Tools like <code>gcloud</code> or <code>psql</code></td><td>Add them to the image in <code>agentbox.env</code></td></tr>
 <tr><td>MCP servers</td><td>Local (stdio) ones are installed and run <b>inside</b> the box (<code>npx</code>, <code>uvx</code>, or baked into the image) and inherit the placeholders. Remote ones get <code>${VAR}</code> in a header, swapped by the proxy. An HTTP server on your own machine is reachable only if you allow its exact <code>host:port</code>. Tested with pi and opencode</td></tr>
 <tr><td>Existing <code>git@host:</code> clones</td><td>Nothing: SSH remotes are rewritten to HTTPS for hosts marked <code>git: true</code></td></tr>
 </table></div>
+
+<h2 id="repos">Several repos: a home repo</h2>
+<p>Real work often spans repos: an API, a frontend, shared docs. The <a href="https://www.aihero.dev/the-home-repo-pattern">home repo pattern</a> puts the shared <code>AGENTS.md</code>, skills and docs in one repo beside the others, with a pointer per repo ("Payments API: <code>~/repos/acme/payments-api</code>"). Sessions start there, and the agent works in whichever repos a task needs. agentbox supports it with one file in the home repo:</p>
+<pre><code><span class="c"># ~/repos/acme/home/.agentbox-home: folders to bring into the box, at their real paths</span>
+../storefront
+~/repos/acme/payments-api
+~/repos/skills:ro                  <span class="c"># read-only</span>
+<span class="c"># ~/repos/acme                     # or the parent, so the agent can clone missing repos</span></code></pre>
+<p>Two details make it work:</p>
+<ul class="tight">
+<li><b>The list needs your approval, once per machine.</b> The home repo is meant to be committed and shared, so this file can arrive from someone else. My first version followed a marker file, which protected nothing, because a cloned repo could commit the marker too. Now agentbox shows the list and asks the first time, and again whenever the list changes, like <code>direnv allow</code>. Scripts approve ahead with <code>agentbox trust</code>.</li>
+<li><b><code>~/…</code> pointers resolve in the box.</b> Inside the box <code>~</code> is the box home, so <code>~/repos/acme/payments-api</code> would point at nothing. Each mounted folder under your home gets a link at the same place in the box home, so the pointers in <code>AGENTS.md</code> work unchanged. Worktrees work too, because every repo is at its real path.</li>
+</ul>
 
 <h2 id="decisions">Why it looks like this</h2>
 <div class="tw"><table>
@@ -325,6 +345,9 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>A persistent, box-only home</td><td>Sessions matter. The home holds only the agent's own state, never real credentials, so persistence doesn't expose them. The cost, shared state across sessions, is listed under limitations.</td></tr>
 <tr><td>A lean image you configure</td><td>Preinstalling every agent made a big image full of unused tools. One <code>agentbox.env</code> file lists what you want.</td></tr>
 <tr><td>Everything fresh per session</td><td>New network, CA and placeholders every run. The CA's private key never leaves the proxy.</td></tr>
+<tr><td>One command per credential (<code>agentbox add</code>)</td><td>The first version meant editing YAML, writing token files with <code>printf</code> and <code>chmod</code>, and remembering to rebuild. Those steps, not the runtime (about 2 seconds to start), were what made it feel heavy.</td></tr>
+<tr><td>Optional path and method rules per secret</td><td>The proxy can't tell a good push from a bad one, but it can limit where a token reaches: <code>gitlab.example.com/acme/*</code>, <code>methods: ["GET"]</code>. Coarse, so a narrowly scoped token from the service still matters more.</td></tr>
+<tr><td>Home-repo lists approved outside the repo</td><td>A file inside a folder can't be the opt-in for that folder when the folder comes from someone else.</td></tr>
 </table></div>
 
 <h2 id="testing">How it was tested</h2>
@@ -338,7 +361,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>No direct egress; metadata server and private IPs blocked</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>Host bridge: only the one allowed host port is reachable</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>pi connects to an MCP server, token injected by the proxy</td><td>✓</td><td>✓</td><td>✓</td></tr>
-<tr><td>Box home persists; agent-home links only with the marker; <code>AGENTBOX_PROJECTS</code> read-write and read-only</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Box home persists; <code>AGENTBOX_PROJECTS</code> read-write and read-only</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>No real secret anywhere in what the agent saw</td><td>✓</td><td>✓</td><td>✓</td></tr>
 </table></div>
 <p>On top of that, on Docker:</p>
@@ -346,6 +369,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <li><b>GitHub:</b> a real token was injected. The API call and a private <code>git clone</code> worked.</li>
 <li><b>GCP:</b> <code>gcloud</code> and <code>bq</code> got a <b>fake</b> token, and Google answered "invalid credentials". That proves the full path (proxy, TLS trust, client honoring the proxy) without touching a real account.</li>
 <li><b>pi:</b> an extension and a skill from host folders loaded inside the box; MCP servers via <code>npx</code> and <code>uvx</code> connected. opencode's MCP worked too.</li>
+<li><b>Later features</b> (so far on the Mac only, 50 checks): <code>agentbox add</code>, the pi setup list (and that <code>auth.json</code> stays out), a real <code>pi -p</code> call sent as a subscription token, home-repo lists (used only after approval, asked again on change, <code>~/…</code> paths in the box), and path and method rules. The approval prompt was tested through a pseudo-terminal.</li>
 </ul>
 
 <h2 id="broke">What broke along the way</h2>
@@ -360,7 +384,10 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>A mounted <code>~/.bashrc</code> did nothing for the agent</td><td>Agents run tools through non-interactive bash, which skips <code>~/.bashrc</code>.</td><td>Also set <code>BASH_ENV</code></td></tr>
 <tr><td>The docs said pi has no MCP</td><td>The image pinned pi's old npm package, which is deprecated. The new one has built-in MCP.</td><td>Switch packages; test MCP in the box</td></tr>
 <tr><td>Agent sessions were lost on every exit, and would have mixed across projects</td><td>A throwaway home, and every project mounted at the same path.</td><td>Persistent box-only home; projects at their real path</td></tr>
-<tr><td>Following links automatically (first version)</td><td>A cloned repo could pull other folders in through a committed symlink.</td><td>Only follow links in a folder marked <code>.agentbox-home</code></td></tr>
+<tr><td>Following links automatically (first version)</td><td>A cloned repo could pull other folders in through a committed symlink.</td><td>A marker file, which didn't help either (a repo can commit it). Now: approval stored outside the repo</td></tr>
+<tr><td>pi treated the injected Claude subscription token as an API key</td><td>pi picks the auth scheme by the token's <code>sk-ant-oat</code> prefix, and placeholders started with <code>agentbox-</code>.</td><td>A per-secret placeholder prefix</td></tr>
+<tr><td>Every interactive session crashed on macOS</td><td>macOS ships bash 3.2, which treats an empty array as unset under <code>set -u</code>. The tests never have a terminal, so they never hit it.</td><td>Guard the expansion; test the prompt through a pseudo-terminal</td></tr>
+<tr><td>The pi test failed now and then</td><td><code>pi -p</code> reads piped stdin as extra input and waits for it to close. The proxy log showed no connection at all during the 120 seconds.</td><td><code>&lt;/dev/null</code> in the test</td></tr>
 <tr><td>Half the network checks "failed"</td><td>A bug in the test itself: a bash function isn't visible in subshells.</td><td><code>export -f</code></td></tr>
 </table></div>
 
@@ -371,10 +398,10 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <h3>What it doesn't protect against</h3>
 <div class="tw"><table>
 <tr><th>Risk</th><th>Why</th><th>What helps</th></tr>
-<tr><td>Misuse during the session</td><td>The token works through the proxy: push, delete, read</td><td>Least-privilege tokens, protected branches, read-only identities</td></tr>
+<tr><td>Misuse during the session</td><td>The token works through the proxy: push, delete, read</td><td>Least-privilege tokens, protected branches, read-only identities; path and method rules narrow it a little</td></tr>
 <tr><td>Data exfiltration</td><td>With the internet open, data can go anywhere; DNS isn't filtered</td><td>A tight <code>allow_hosts</code> list</td></tr>
 <tr><td>Secrets inside the repo</td><td>The workspace is mounted in full, so a <code>.env</code> is visible</td><td>Keep real secrets out of repos</td></tr>
-<tr><td>Logins done inside the box</td><td>An OAuth sign-in in the box stores a real token in the box home, where it persists</td><td>Give credentials through <code>proxy.yaml</code></td></tr>
+<tr><td>Logins done inside the box</td><td>An OAuth sign-in in the box stores a real token in the box home, where it persists</td><td>Give credentials through <code>agentbox add</code></td></tr>
 <tr><td>Persistence across sessions</td><td>The box home is shared, so a hijacked session can leave something for later ones</td><td>Separate homes per trust level; delete to reset; throwaway mode</td></tr>
 <tr><td>Container escapes</td><td>Plain containers share the host kernel</td><td><code>--gvisor</code></td></tr>
 <tr><td>The host itself</td><td>Real tokens live on your machine</td><td>Normal host hygiene</td></tr>
@@ -388,7 +415,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>Clients that ignore the proxy or CA settings (some gRPC libraries)</td><td>Configure them, or use REST mode</td></tr>
 <tr><td>Stdio MCP servers installed on your machine</td><td>Install them in the box, or run them as HTTP behind the host bridge</td></tr>
 <tr><td>Docker inside the box</td><td>Binary, npm or PyPI releases</td></tr>
-<tr><td>Links deep inside an agent-home's repos</td><td>Link the target at the top level</td></tr>
+<tr><td>Links deep inside a home repo's repos</td><td>List the target in <code>.agentbox-home</code></td></tr>
 </table></div>
 <p><b>Not tested yet:</b> gVisor under Podman, VS Code agents (Kilo, Cline) attached to the box, <code>pi install</code> packages, a real GCP account end to end, Windows hosts.</p>
 <h3>Cheap wins on top</h3>
@@ -398,6 +425,21 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <div class="card"><h4>Read-only identity</h4><p>Give the agent a read-only cloud identity, and do writes yourself.</p></div>
 <div class="card"><h4>Tighten allow_hosts</h4><p>The proxy log shows which hosts are used. It's the only control on exfiltration.</p></div>
 </div>
+
+<h2 id="compare">How others do it</h2>
+<p>The core idea, a fake token in the sandbox and a proxy outside that swaps in the real one, is now common. A few projects, as of late 2026 (found by search, not run by me):</p>
+<div class="tw"><table>
+<tr><th>Project</th><th>What it is</th><th>Difference from agentbox</th></tr>
+<tr><td><a href="https://www.docker.com/blog/untrusted-autonomous-workload-ai-sandboxes">Docker Sandboxes</a></td><td>Docker's own product: each agent in a microVM, deny-by-default egress, a host proxy that injects credentials</td><td>The same design with a VM wall instead of a container. The most polished option where VMs are available</td></tr>
+<tr><td><a href="https://github.com/inoio/agents-sandbox">inoio/agents-sandbox</a></td><td>A microVM per project with host-side secret injection; supports pi</td><td>Needs KVM (or macOS virtualization)</td></tr>
+<tr><td><a href="https://akmatori.com/blog/agent-vault-ai-agents-production">Infisical Agent Vault</a></td><td>A credential-injecting HTTP proxy backed by a secrets manager</td><td>Secrets come from a vault, not files</td></tr>
+<tr><td><a href="https://www.helpnetsecurity.com/2026/07/27/nono-open-source-ai-agent-sandboxing/">Nono</a></td><td>Kernel-level confinement plus stand-in credentials from the keychain or 1Password</td><td>No container at all</td></tr>
+<tr><td><a href="https://github.com/bureado/awesome-agent-runtime-security">More on this list</a></td><td>onecli (swaps by host and path), rein, sandbox-proxy, Kontext (short-lived tokens)</td><td>Varying isolation and scope</td></tr>
+</table></div>
+<p><b>Where agentbox still fits:</b> it's small enough to read in an evening and runs on Linux machines without virtualization, where microVMs aren't an option (many cloud dev VMs lack nested virtualization; gVisor works there).</p>
+<h3>How organizations handle it</h3>
+<p>Mostly closer to laissez-faire than vendor blogs suggest. The common case is developers running agents with their own credentials, with safety coming from the identity layer: SSO, short-lived cloud credentials, branch protection, code review. Short lifetimes cap how long a leaked token is useful, but do nothing about misuse during the session, which is exactly when an agent is running. More mature setups give each agent its own identity, run it in an ephemeral environment behind an egress proxy, and log every action. Practitioner guides suggest token lifetimes of 15 to 60 minutes (<a href="https://thehackernews.com/2026/09/iam-for-ai-agent.html">e.g.</a>); those are guidelines, not standards.</p>
+<p>The honest summary: hiding the token is the solved part. The open problem is a hijacked agent using a token it legitimately has, and the best tools there are the service's own: narrowly scoped tokens, protected branches and review.</p>
 
 <div class="callout why"><b class="t">About this section</b>
 <p>Pages under Agentic Experiments are written with AI assistance. The blog itself stays human-written.</p>
