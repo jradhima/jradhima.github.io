@@ -302,7 +302,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 </div>
 <div class="tw"><table>
 <tr><th>You want in the box</th><th>How</th></tr>
-<tr><td>Your agent's skills or prompts</td><td>Mount them read-only with <code>AGENTBOX_MOUNTS</code>. Never mount a file that holds a key</td></tr>
+<tr><td>Your agent's skills, extensions or prompts</td><td>Mount the folders read-only with <code>AGENTBOX_MOUNTS</code>. Pi extensions load from them, tested. Never mount a folder that holds your login, such as <code>~/.pi/agent</code> itself (it has <code>auth.json</code>)</td></tr>
 <tr><td>Aliases and shell setup</td><td>A small secret-free <code>box.bashrc</code>, mounted as <code>~/.bashrc</code>, plus <code>BASH_ENV</code> so the agent's non-interactive shells read it too</td></tr>
 <tr><td>Plain settings (default project, GitLab host)</td><td><code>AGENTBOX_ENV</code></td></tr>
 <tr><td>Tools like <code>gcloud</code> or <code>psql</code></td><td>Add them to the image in <code>agentbox.env</code></td></tr>
@@ -349,6 +349,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td><code>Could not resolve proxy</code> (gVisor only)</td><td>gVisor has its own network stack and can't use Docker's built-in DNS.</td><td>Wrapper passes the proxy's IP, not its name</td></tr>
 <tr><td>Podman: can't connect to <code>podman.sock</code></td><td><code>podman compose</code> picked the docker-compose backend because Docker was also installed.</td><td>Call <code>podman-compose</code> directly</td></tr>
 <tr><td>opencode got no answers</td><td>Its free models only serve OpenCode 2 clients; the npm package I'd pinned was version 1.</td><td>Install <code>@opencode/cli</code> v2</td></tr>
+<tr><td>After mounting a pi extension, pi couldn't save anything in <code>~/.pi/agent</code></td><td>The container engine creates a mount's missing parent folders as root.</td><td>Mount elsewhere and symlink it into place as the user</td></tr>
 <tr><td>A mounted <code>~/.bashrc</code> did nothing for the agent</td><td>Agents run tools through non-interactive bash, which skips <code>~/.bashrc</code>.</td><td>Also set <code>BASH_ENV</code></td></tr>
 <tr><td>Half the network checks "failed"</td><td>A bug in the test itself: a bash function isn't visible in subshells.</td><td><code>export -f</code></td></tr>
 </table></div>
