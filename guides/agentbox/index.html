@@ -121,25 +121,25 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
 <a href="#decisions"><span class="n">06</span>Why it looks like this</a>
 <a href="#testing"><span class="n">07</span>How it was tested</a>
 <a href="#broke"><span class="n">08</span>What broke</a>
-<a href="#limits"><span class="n">09</span>Limits and cheap wins</a>
+<a href="#limits"><span class="n">09</span>Limitations</a>
 </div></details>
 <button class="themebtn" onclick="toggleTheme()" aria-label="Toggle light or dark theme">Theme</button>
 </div></div>
 <main>
 <div class="kicker">Experiment · November 2026</div>
 <h1>agentbox: agents that never see your credentials</h1>
-<p class="lede">A coding agent that runs <code>gcloud</code> and <code>glab</code> on your behalf is useful, and a liability: anything that can run <code>env</code> can read your tokens. This experiment keeps bash and the internet, but takes the real credentials out of the agent's reach.</p>
+<p class="lede">A coding agent that runs CLIs with your credentials is useful, and a liability: anything that can run <code>env</code> can read your tokens. This experiment keeps bash and the internet, but takes the real credentials out of the agent's reach. It uses <a href="https://github.com/earendil-works/pi">pi</a> as the main agent and is built from open-source parts.</p>
 
 <div class="oneminute"><b class="t">TL;DR</b>
-<p>The agent runs in a container that only sees <b>fake placeholder tokens</b>, on a network with no route out. Its only exit is a small proxy that swaps in the real GitLab, GitHub, GCP or Anthropic token, and only for the hosts that token belongs to. CLIs work unchanged. GCP only ever gets 1-hour access tokens. It was tested on Docker, Podman and gVisor on x86_64 Linux. The whole thing is about 450 lines.</p>
+<p>The agent runs in a container that only sees <b>fake placeholder tokens</b>, on a network with no route out. Its only exit is a small proxy that swaps in the real GitLab, GitHub, cloud or API token, and only for the hosts that token belongs to. CLIs, pi extensions and MCP servers work unchanged. It stops credential <i>theft</i>, not every kind of misuse, so read the <a href="#limits">limitations</a>. Tested on Docker, Podman and gVisor. About 450 lines on top of Docker or Podman and mitmproxy.</p>
 </div>
 
 <h2 id="problem">The problem</h2>
-<p>At work we use GCP workstations with our own credentials (<code>gcloud auth login</code>, ADC) and a long-lived GitLab token. Giving an agent skills to drive those CLIs is very productive. But the agent is unsandboxed, so a malicious skill or a prompt injection can simply read the tokens:</p>
+<p>A common setup: you log in with your own credentials (<code>gcloud auth login</code>, a GitLab or GitHub token), give your agent skills to drive those CLIs, and let it work. That's very productive. But a typical agent runs unsandboxed, so a malicious skill or extension, or a prompt injection hidden in a page or an issue, can simply read the tokens:</p>
 <div class="grid2">
 <div class="card"><h4>GitLab token</h4><p>Long-lived. Whoever has it can push code or rewrite CI pipelines to exfiltrate secrets.</p></div>
 <div class="card"><h4>gcloud refresh token</h4><p>Access tokens last an hour, but <code>~/.config/gcloud</code> holds a refresh token that lasts until revoked.</p></div>
-<div class="card"><h4>Metadata server</h4><p>On a GCP VM, <code>169.254.169.254</code> hands any process the machine's service-account token.</p></div>
+<div class="card"><h4>Metadata server</h4><p>On a cloud VM, <code>169.254.169.254</code> hands any process the machine's service-account token.</p></div>
 <div class="card"><h4>Blocking everything</h4><p>Taking away bash or the internet makes the agent useless. That's not an option.</p></div>
 </div>
 <p>So the goal is narrow and concrete: <b>the agent can use the credentials, but can't take them.</b></p>
@@ -156,15 +156,15 @@ footer{margin-top:40px;color:var(--muted);font-size:13px}
 </defs>
 <!-- host perimeter -->
 <rect x="10" y="10" width="470" height="410" rx="14" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
-<text x="26" y="34" class="lbl">YOUR WORKSTATION</text>
+<text x="26" y="34" class="lbl">YOUR MACHINE</text>
 <!-- internal network perimeter -->
 <rect x="30" y="52" width="300" height="230" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4"/>
 <text x="46" y="74" class="lbl acc">INTERNAL NETWORK · NO ROUTE OUT</text>
 <!-- agent -->
 <rect x="50" y="90" width="200" height="170" rx="10" fill="var(--surface)" stroke="var(--line)"/>
 <text x="66" y="116" class="h">agent container</text>
-<text x="66" y="140" class="t">pi · opencode · claude · git</text>
-<text x="66" y="160" class="t">gcloud · bq · glab · curl</text>
+<text x="66" y="140" class="t">pi · extensions · MCP servers</text>
+<text x="66" y="160" class="t">git · glab · gcloud · curl</text>
 <rect x="62" y="174" width="176" height="28" rx="6" fill="var(--surface-2)"/>
 <text x="72" y="193" class="m">GITLAB_TOKEN=agentbox-…</text>
 <text x="66" y="224" class="t">your repo at /workspace</text>
@@ -222,7 +222,7 @@ secrets:
   GCP_TOKEN:
     hosts: ["*.googleapis.com"]
     gcp_adc: true                  <span class="c"># 1-hour tokens, refreshed by the proxy</span></code></pre>
-<p>Starting a session is one command in your repo: <code>agentbox pi</code>, <code>agentbox claude</code> or <code>agentbox bash</code>. Both containers are created fresh and deleted on exit.</p>
+<p>Starting a session is one command in your repo: <code>agentbox pi</code>, <code>agentbox opencode</code> or <code>agentbox bash</code>. Both containers are created fresh and deleted on exit.</p>
 
 <h2 id="request">One request, step by step</h2>
 <p>What happens when the agent runs <code>glab mr list</code>, and when something tries to send the token somewhere else:</p>
@@ -289,10 +289,10 @@ secrets:
 <li><b>Once:</b> <code>agentbox init</code> creates two files in <code>~/.config/agentbox/</code>: <code>proxy.yaml</code> (hosts and secrets) and <code>agentbox.env</code> (what goes in the image).</li>
 <li><b>Tokens become files.</b> The proxy reads each real value from a file in that folder (or mints GCP tokens from your ADC). It can't see your shell's env vars, so a token exported in <code>~/.bashrc</code> has to be copied into a file. Then point <code>~/.bashrc</code> at the file, so there's one copy.</li>
 <li><b>Choose the image.</b> The default is lean: base tools plus pi. List more agents and packages in <code>agentbox.env</code> and run <code>agentbox build</code>.</li>
-<li><b>Every day:</b> <code>cd</code> into a repo and run <code>agentbox pi</code>, <code>agentbox claude</code> or <code>agentbox bash</code>.</li>
+<li><b>Every day:</b> <code>cd</code> into a repo and run <code>agentbox pi</code>, <code>agentbox opencode</code> or <code>agentbox bash</code>.</li>
 </ol>
 <pre><code><span class="c"># ~/.config/agentbox/agentbox.env</span>
-AGENTBOX_NPM_PACKAGES="@mariozechner/pi-coding-agent@0.73.1 @anthropic-ai/claude-code@2.1.318"
+AGENTBOX_NPM_PACKAGES="@earendil-works/pi-coding-agent@1.5.0 @opencode/cli@2.2.5"
 AGENTBOX_APT_PACKAGES="postgresql-client"
 AGENTBOX_GCLOUD=1
 AGENTBOX_MOUNTS="~/.pi/agent/skills:~/.pi/agent/skills"     <span class="c"># read-only</span>
@@ -306,6 +306,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>Aliases and shell setup</td><td>A small secret-free <code>box.bashrc</code>, mounted as <code>~/.bashrc</code>, plus <code>BASH_ENV</code> so the agent's non-interactive shells read it too</td></tr>
 <tr><td>Plain settings (default project, GitLab host)</td><td><code>AGENTBOX_ENV</code></td></tr>
 <tr><td>Tools like <code>gcloud</code> or <code>psql</code></td><td>Add them to the image in <code>agentbox.env</code></td></tr>
+<tr><td>MCP servers</td><td>Local (stdio) ones are installed and run <b>inside</b> the box (<code>npx</code>, <code>uvx</code>, or baked into the image) and inherit the placeholders. Remote ones get <code>${VAR}</code> in a header, swapped by the proxy. An HTTP server on your own machine is reachable only if you allow its exact <code>host:port</code>. Tested with pi and opencode</td></tr>
 <tr><td>Existing <code>git@host:</code> clones</td><td>Nothing: SSH remotes are rewritten to HTTPS for hosts marked <code>git: true</code></td></tr>
 </table></div>
 
@@ -313,11 +314,11 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <div class="tw"><table>
 <tr><th>Decision</th><th>Why</th></tr>
 <tr><td>Inject at a proxy, not MCP servers per tool</td><td>One mechanism covers every CLI and every agent's own API calls, with no tool code to maintain. An MCP server that can run any gcloud command protects no better against theft.</td></tr>
-<tr><td>Containers, with gVisor optional</td><td>Mature, already on workstations, no nested virtualization. The threat is a tricked agent reading files, not a kernel exploit. gVisor is one flag away if that changes.</td></tr>
+<tr><td>Containers, with gVisor optional</td><td>Mature, already on most developer machines, no nested virtualization. The threat is a tricked agent reading files, not a kernel exploit. gVisor is one flag away if that changes.</td></tr>
 <tr><td>Two containers and a network with no route out</td><td><code>HTTPS_PROXY</code> alone is a suggestion: <code>curl --noproxy '*'</code> ignores it. A separate network makes the proxy the only door, and cuts off the metadata server.</td></tr>
 <tr><td>Swap in headers only</td><td>That's where tokens travel. Swapping in bodies would let the agent write the real token into an issue or gist.</td></tr>
 <tr><td>Re-mask responses</td><td>An allowed host that echoes headers (debug endpoints) would otherwise hand the real token back.</td></tr>
-<tr><td>Proxy blocks private IPs</td><td>The proxy itself can reach the metadata server. Without this check, the agent could ask the proxy to fetch the workstation's token.</td></tr>
+<tr><td>Proxy blocks private IPs</td><td>The proxy itself can reach the metadata server. Without this check, the agent could ask the proxy to fetch the machine's cloud token.</td></tr>
 <tr><td>GCP through ADC → 1-hour tokens</td><td>The refresh token never enters the box. <code>gcloud</code> and <code>bq</code> read the placeholder from <code>CLOUDSDK_AUTH_ACCESS_TOKEN_FILE</code>.</td></tr>
 <tr><td>Secrets come from files, not env vars</td><td>The proxy lives in its own container. A <code>chmod 600</code> file is simpler than piping real values through Docker on every run.</td></tr>
 <tr><td>A lean image you configure</td><td>Preinstalling every agent made a big image full of unused tools. One <code>agentbox.env</code> file lists what you want.</td></tr>
@@ -325,7 +326,7 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 </table></div>
 
 <h2 id="testing">How it was tested</h2>
-<p>An end-to-end script starts a real session with a throwaway config, runs checks inside the box, then scans everything the agent saw or received for the real secret. Development happened on an arm64 Mac, but the real runs were on an <b>x86_64 Ubuntu VM</b> to match a GCP workstation.</p>
+<p>An end-to-end script starts a real session with a throwaway config, runs checks inside the box, then scans everything the agent saw or received for the real secret. Development happened on an arm64 Mac, but the real runs were on an <b>x86_64 Ubuntu VM</b>, the most common architecture for dev servers.</p>
 <div class="flow"><span class="b">random "real" secret</span><span class="ar">→</span><span class="b">throwaway proxy.yaml</span><span class="ar">→</span><span class="b hl">real session</span><span class="ar">→</span><span class="b">checks inside the box</span><span class="ar">→</span><span class="b">leak scan on the host</span></div>
 <div class="tw"><table>
 <tr><th>Check</th><th>Docker</th><th>gVisor</th><th>Podman</th></tr>
@@ -333,12 +334,15 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>Placeholder to another host blocked (header, Basic auth, URL)</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>Header-echo endpoint can't leak the real value</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>No direct egress; metadata server and private IPs blocked</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Host bridge: only the one allowed host port is reachable</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>pi connects to an MCP server, token injected by the proxy</td><td>✓</td><td>✓</td><td>✓</td></tr>
 <tr><td>No real secret anywhere in what the agent saw</td><td>✓</td><td>✓</td><td>✓</td></tr>
 </table></div>
 <p>On top of that, on Docker:</p>
 <ul class="tight">
 <li><b>GitHub:</b> a real token was injected. The API call and a private <code>git clone</code> worked.</li>
-<li><b>GCP and Anthropic:</b> <code>gcloud</code>, <code>bq</code> and Claude Code (Haiku) got <b>fake</b> tokens, and Google and Anthropic answered "invalid credentials". That proves the full path (proxy, TLS trust, client honoring the proxy) without touching a real account.</li>
+<li><b>GCP:</b> <code>gcloud</code> and <code>bq</code> got a <b>fake</b> token, and Google answered "invalid credentials". That proves the full path (proxy, TLS trust, client honoring the proxy) without touching a real account.</li>
+<li><b>pi:</b> an extension and a skill from host folders loaded inside the box; MCP servers via <code>npx</code> and <code>uvx</code> connected. opencode's MCP worked too.</li>
 </ul>
 
 <h2 id="broke">What broke along the way</h2>
@@ -351,17 +355,41 @@ AGENTBOX_ENV="CLOUDSDK_CORE_PROJECT=my-project"</code></pre>
 <tr><td>opencode got no answers</td><td>Its free models only serve OpenCode 2 clients; the npm package I'd pinned was version 1.</td><td>Install <code>@opencode/cli</code> v2</td></tr>
 <tr><td>After mounting a pi extension, pi couldn't save anything in <code>~/.pi/agent</code></td><td>The container engine creates a mount's missing parent folders as root.</td><td>Mount elsewhere and symlink it into place as the user</td></tr>
 <tr><td>A mounted <code>~/.bashrc</code> did nothing for the agent</td><td>Agents run tools through non-interactive bash, which skips <code>~/.bashrc</code>.</td><td>Also set <code>BASH_ENV</code></td></tr>
+<tr><td>The docs said pi has no MCP</td><td>The image pinned pi's old npm package, which is deprecated. The new one has built-in MCP.</td><td>Switch packages; test MCP in the box</td></tr>
 <tr><td>Half the network checks "failed"</td><td>A bug in the test itself: a bash function isn't visible in subshells.</td><td><code>export -f</code></td></tr>
 </table></div>
 
-<h2 id="limits">Limits and cheap wins</h2>
+<h2 id="limits">Limitations</h2>
 <div class="callout gotcha"><b class="t">It stops theft, not misuse</b>
-<p>A hijacked agent can still do anything the token allows <i>during the session</i>, and with the internet open it can still send data out. Plain containers also share the host kernel. Those are handled by permissions and by gVisor, not by the proxy.</p>
+<p>agentbox keeps credentials out of the agent's hands. It doesn't make the agent harmless: a hijacked agent can still do anything the token allows <i>during the session</i>.</p>
 </div>
+<h3>What it doesn't protect against</h3>
+<div class="tw"><table>
+<tr><th>Risk</th><th>Why</th><th>What helps</th></tr>
+<tr><td>Misuse during the session</td><td>The token works through the proxy: push, delete, read</td><td>Least-privilege tokens, protected branches, read-only identities</td></tr>
+<tr><td>Data exfiltration</td><td>With the internet open, data can go anywhere; DNS isn't filtered</td><td>A tight <code>allow_hosts</code> list</td></tr>
+<tr><td>Secrets inside the repo</td><td>The workspace is mounted in full, so a <code>.env</code> is visible</td><td>Keep real secrets out of repos</td></tr>
+<tr><td>Logins done inside the box</td><td>An OAuth sign-in in the box stores a real token there</td><td>Give credentials through <code>proxy.yaml</code></td></tr>
+<tr><td>Container escapes</td><td>Plain containers share the host kernel</td><td><code>--gvisor</code></td></tr>
+<tr><td>The host itself</td><td>Real tokens live on your machine</td><td>Normal host hygiene</td></tr>
+</table></div>
+<h3>What doesn't work</h3>
+<div class="tw"><table>
+<tr><th>Doesn't work</th><th>Alternative</th></tr>
+<tr><td>Secrets the client signs with: service-account JSON keys, AWS keys, mTLS certs, SSH keys</td><td>Token-based auth (ADC, HTTPS git)</td></tr>
+<tr><td>Tokens sent in the URL or body</td><td>The header form of the API</td></tr>
+<tr><td>Non-HTTP traffic: SSH, database protocols, raw TCP</td><td>HTTPS remotes (SSH-style ones are rewritten), REST APIs</td></tr>
+<tr><td>Clients that ignore the proxy or CA settings (some gRPC libraries)</td><td>Configure them, or use REST mode</td></tr>
+<tr><td>Stdio MCP servers installed on your machine</td><td>Install them in the box, or run them as HTTP behind the host bridge</td></tr>
+<tr><td>Docker inside the box</td><td>Binary, npm or PyPI releases</td></tr>
+<tr><td>State outside <code>/workspace</code> survives the session</td><td>Write to <code>/workspace</code></td></tr>
+</table></div>
+<p><b>Not tested yet:</b> gVisor under Podman, VS Code agents (Kilo, Cline) attached to the box, <code>pi install</code> packages, a real GCP account end to end, Windows hosts.</p>
+<h3>Cheap wins on top</h3>
 <div class="grid2">
-<div class="card"><h4>Protect main</h4><p>On important repos the agent opens MRs; on solo repos let it push.</p></div>
-<div class="card"><h4>Protected CI variables</h4><p>Feature-branch pipelines never get deploy secrets, even if the agent edits CI.</p></div>
-<div class="card"><h4>Read-only GCP identity</h4><p>Impersonate a read-only service account for the agent, and do writes yourself.</p></div>
+<div class="card"><h4>Protect main</h4><p>On important repos the agent opens merge requests; on solo repos let it push.</p></div>
+<div class="card"><h4>Protect CI secrets</h4><p>Only protected-branch pipelines get deploy secrets, even if the agent edits CI.</p></div>
+<div class="card"><h4>Read-only identity</h4><p>Give the agent a read-only cloud identity, and do writes yourself.</p></div>
 <div class="card"><h4>Tighten allow_hosts</h4><p>The proxy log shows which hosts are used. It's the only control on exfiltration.</p></div>
 </div>
 
